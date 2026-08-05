@@ -1,37 +1,26 @@
 # AXIOM Pricing Module — Track A (Pricing Engine & MLOps)
 
-Week 1 deliverables. Owner: Nourjihen Elabed.
+Owner: Nourjihen Elabed · engine v0.2.0 · contract v0.2.0-draft · 43 tests
 
-## What Week 1 covers
+Reads the AXIOM knowledge graph and produces auditable B2B pricing numbers:
+a price waterfall from list price to pocket margin, aggregated across any
+dimension, handed to Track B as a typed result object carrying its own evidence
+and confidence.
 
-| Week 1 task (onboarding plan §5) | Where it lives |
-|---|---|
-| Environment: Python, Neo4j driver, MLflow, DVC, Docker | `requirements.txt`, `docker-compose.yml`, `.env.example` |
-| Connect to the read-only graph | `src/pricing/data_source.py`, `src/pricing/cypher.py` |
-| Explore the graph: counts, distributions, null rates | `src/pricing/profiling.py`, `scripts/profile_data.py`, `notebooks/01_graph_profiling.ipynb` |
-| One-page write-up of the data | `docs/WEEK1_DATA_WRITEUP.md` |
-| **Quick win:** all transactions for one customer → gross-to-net | `src/pricing/gross_to_net.py`, `scripts/quick_win_gross_to_net.py` |
+## Progress against the plan
 
-## Current data situation
+| Week | Deliverable | Status |
+|---|---|---|
+| 1 | Environment, graph profiling, data write-up, gross-to-net quick win | done |
+| 2 | Graph-access layer **D1**, module structure, result schema **D8 draft**, MLflow, DVC | done |
+| 3 | Price Waterfall Engine **D2** | **done early** — `engine/waterfall.py` |
+| 4 | Margin analytics + Pricing Data Readiness Score **D3** | next |
+| 5 | Segmentation **D4**, elasticity **D5** | — |
+| 6 | Win-probability + optimiser **D6** | — |
+| 7–8 | MLOps packaging **D7**, freeze the contract, integrate | — |
 
-Neo4j credentials have not been issued yet, so everything runs against the
-**synthetic CSV snapshot** in `../synthetic/`. This is a placeholder, not a
-detour: the code is written against a `GraphSource` interface with two
-implementations, and the Cypher for the real graph is already written.
-
-When credentials arrive:
-
-```bash
-# option A — read the live graph directly
-PRICING_SOURCE=neo4j   # + NEO4J_* in .env
-
-# option B (preferred, and what MLOps needs) — freeze a snapshot first
-python scripts/export_neo4j_to_csv.py --out data/snapshot_2026-07-08 --verify
-dvc add data/snapshot_2026-07-08
-```
-
-`export_neo4j_to_csv.py` writes the *same* filenames and column headers, so
-every notebook, script and test keeps working unchanged.
+Gate documents: [`docs/WEEK1_DATA_WRITEUP.md`](docs/WEEK1_DATA_WRITEUP.md) ·
+[`docs/WEEK2_ARCHITECTURE.md`](docs/WEEK2_ARCHITECTURE.md)
 
 ## Setup
 
@@ -40,48 +29,88 @@ python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\act
 pip install -r requirements.txt
 cp .env.example .env
 
-docker compose up -d        # optional: local Neo4j + MLflow
+docker compose up -d        # optional: local Neo4j + MLflow UI
 ```
 
 ## Run
 
 ```bash
-python scripts/profile_data.py                        # → reports/profile_report.md
-python scripts/quick_win_gross_to_net.py              # biggest customer
-python scripts/quick_win_gross_to_net.py --customer CUS-013
-python scripts/quick_win_gross_to_net.py --all        # whole book
-pytest -q                                             # 10 tests
-jupyter lab notebooks/01_graph_profiling.ipynb
+python scripts/run_waterfall.py                     # whole book, all dimensions
+python scripts/run_waterfall.py --customer CUS-013  # one customer
+python scripts/run_waterfall.py --by segment        # print one aggregation
+python scripts/run_waterfall.py --leakage customer  # where is margin leaking?
+python scripts/run_profile.py                       # data profile -> reports/
+
+dvc repro                                           # reproduce everything
+mlflow ui --backend-store-uri sqlite:///mlflow.db   # inspect runs
+pytest -q                                           # 43 tests
+```
+
+Everything goes through one entry point:
+
+```python
+from pricing.engine import pipeline
+run = pipeline.run()          # validate -> waterfall -> aggregate -> contract -> track
+run.result.to_json()          # what Track B receives
 ```
 
 ## Layout
 
 ```
 src/pricing/
-  config.py        backend selection, paths, domain constants
-  cypher.py        every Cypher query, read-only by construction
-  data_source.py   GraphSource: CsvGraphSource (active) | Neo4jGraphSource (ready)
-  profiling.py     counts, null rates, distributions, integrity, reconciliation
-  gross_to_net.py  Week 1 waterfall cut — seed of D2
-scripts/
-  profile_data.py            run the profile, write reports/
-  quick_win_gross_to_net.py  the Week 1 quick win
-  export_neo4j_to_csv.py     Neo4j → CSV snapshot (for when creds land)
-notebooks/01_graph_profiling.ipynb
-tests/test_week1.py
-docs/WEEK1_DATA_WRITEUP.md
+  contracts/   engine -> narrative result schema (D8). Track B's only import.
+  engine/      waterfall.py · aggregation.py · result.py · pipeline.py
+  quality/     profiling.py            (Week 4: readiness score)
+  graph/       source.py · cypher.py · validation.py     (D1)
+  tracking/    mlflow_runs.py          (Week 7: model registry)
+  config.py    backend selection, snapshot resolution, domain constants
+scripts/       run_waterfall.py · run_profile.py · export_neo4j_to_csv.py
+data/          versioned snapshots (DVC)
+notebooks/     01_graph_profiling · 02_waterfall_analysis
+tests/         test_graph · test_engine · test_contract
 ```
 
-## The one rule in this codebase
+Dependencies point inward only: `graph` knows nothing about `engine`, `engine`
+knows nothing about `tracking`. `engine/pipeline.py` is the one place they meet.
 
-**Missing is not zero.** A step whose inputs are unknown is reported as
-UNAVAILABLE and counted in `flags`; it never becomes 0, and never a partial sum.
-Headline totals cover only fully decomposable transactions, with coverage stated
-next to them. This is the Brief's "abstain under uncertainty" made mechanical,
-and `tests/test_week1.py` enforces it.
+## Data: CSV now, Neo4j when credentials arrive
 
-## Not in scope this week
+Neo4j access has not been issued yet, so everything runs against a synthetic CSV
+snapshot. That is a backend choice, not a detour — the code talks to a
+`GraphSource` interface with two implementations, and the Cypher for the real
+graph is already written and mechanically tested for read-only-ness.
 
-Aggregation by arbitrary dimension, IQR outliers, readiness score, segmentation,
-elasticity, win-probability, optimiser, MLflow runs, DVC pipeline, Docker
-service. Those are Weeks 2–8.
+When credentials arrive:
+
+```bash
+# option A — read the live graph directly
+PRICING_SOURCE=neo4j        # + NEO4J_* in .env
+
+# option B (preferred, and what reproducibility needs) — freeze a snapshot
+python scripts/export_neo4j_to_csv.py --out data/snapshot_2026-07-08 --verify
+dvc add data/snapshot_2026-07-08
+```
+
+The exporter writes the same filenames and column headers, and `config.py`
+automatically picks the newest `data/snapshot_*`, so every notebook, script and
+test keeps working unchanged — now on real data.
+
+## The rules this codebase enforces
+
+**Missing is not zero.** A step whose inputs are unknown is UNAVAILABLE and
+counted in `flags`; it never becomes 0, and never a partial sum. Headline totals
+cover only fully decomposable transactions, with coverage stated beside them.
+
+**Ratios come from sums.** Never the mean of per-deal percentages — that weights
+a €400 order the same as a €400,000 one.
+
+**Aggregates must reconcile.** Every groupby is checked against the grand total
+on every run, which catches join fanout before it reaches a report.
+
+**No cross-currency sums.** The graph holds five currencies and no FX rate, so
+any aggregate spanning them abstains with a stated reason. Put `currency` in the
+grain to get a publishable number.
+
+**Nothing is published without evidence.** Every record in the result contract
+carries the IDs it was computed from, plus a confidence score and the reasons
+behind it. `contracts.validate()` rejects results that break this.
