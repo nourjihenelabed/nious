@@ -24,7 +24,7 @@ USAGE
     #    NEO4J_USER=neo4j
     #    NEO4J_PASSWORD=...
     # 2. run
-    python scripts/export_neo4j_to_csv.py --out ../snapshot_2026-07-08
+    python scripts/export_neo4j_to_csv.py --out data/snapshot_2026-07-08
 
     # optional: verify the export reconciles against the live graph
     python scripts/export_neo4j_to_csv.py --out ../snapshot --verify
@@ -132,7 +132,7 @@ if __name__ == "__main__":
     ap.add_argument(
         "--out",
         type=Path,
-        default=config.REPO_ROOT.parent / f"snapshot_{datetime.now():%Y-%m-%d}",
+        default=config.DATA_DIR / f"snapshot_{datetime.now():%Y-%m-%d}",
         help="directory to write the CSV snapshot into",
     )
     ap.add_argument(

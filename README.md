@@ -26,8 +26,8 @@ When credentials arrive:
 PRICING_SOURCE=neo4j   # + NEO4J_* in .env
 
 # option B (preferred, and what MLOps needs) — freeze a snapshot first
-python scripts/export_neo4j_to_csv.py --out ../snapshot_2026-07-08 --verify
-dvc add ../snapshot_2026-07-08
+python scripts/export_neo4j_to_csv.py --out data/snapshot_2026-07-08 --verify
+dvc add data/snapshot_2026-07-08
 ```
 
 `export_neo4j_to_csv.py` writes the *same* filenames and column headers, so

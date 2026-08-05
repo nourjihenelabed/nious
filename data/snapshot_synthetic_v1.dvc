@@ -1,0 +1,6 @@
+outs:
+- md5: 63031c8af3726c6a3ca808e467b8643f.dir
+  size: 164409
+  nfiles: 8
+  hash: md5
+  path: snapshot_synthetic_v1

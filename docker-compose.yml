@@ -30,7 +30,7 @@ services:
       - neo4j_logs:/logs
       # Mount the CSV snapshot so LOAD CSV can read it:
       #   LOAD CSV WITH HEADERS FROM 'file:///customers.csv' AS row ...
-      - ../synthetic:/var/lib/neo4j/import:ro
+      - ./data/snapshot_synthetic_v1:/var/lib/neo4j/import:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
       interval: 10s

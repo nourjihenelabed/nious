@@ -20,9 +20,32 @@ from pathlib import Path
 # repo root = .../axiom-pricing-module
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Default CSV location: the synthetic export that sits next to this repo.
-# Override with PRICING_DATA_DIR when the real Neo4j export lands elsewhere.
-DEFAULT_CSV_DIR = REPO_ROOT.parent / "synthetic"
+# --- where snapshots live -------------------------------------------------
+# Canonical location: data/ inside the repo, so DVC can version it (DVC cannot
+# track paths outside the project) and so `export_neo4j_to_csv.py` has an
+# obvious place to write. Each snapshot is its own dated/named directory:
+#
+#     data/snapshot_synthetic_v1/     <- the Week 1 placeholder
+#     data/snapshot_2026-07-08/       <- a real export, once we have credentials
+#
+# The newest `snapshot_*` directory wins unless PRICING_DATA_DIR says otherwise.
+DATA_DIR = REPO_ROOT / "data"
+
+
+def _default_snapshot() -> Path:
+    candidates = sorted(
+        (p for p in DATA_DIR.glob("snapshot_*") if p.is_dir()),
+        key=lambda p: p.name,
+    )
+    if candidates:
+        # dated snapshots sort after "snapshot_synthetic_v1", so a real export
+        # automatically takes precedence over the placeholder
+        return candidates[-1]
+    # fall back to the original hand-off location next to the repo
+    return REPO_ROOT.parent / "synthetic"
+
+
+DEFAULT_CSV_DIR = _default_snapshot()
 
 REPORTS_DIR = REPO_ROOT / "reports"
 DOCS_DIR = REPO_ROOT / "docs"

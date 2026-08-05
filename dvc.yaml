@@ -17,8 +17,8 @@
 # Note: the data snapshot itself is versioned separately with `dvc add`, because
 # it is an input we receive rather than something this pipeline produces:
 #
-#     dvc add ../synthetic          # or ../snapshot_2026-07-08
-#     git add ../synthetic.dvc .gitignore && git commit -m "pin snapshot"
+#     dvc add data/snapshot_2026-07-08
+#     git add data/snapshot_2026-07-08.dvc data/.gitignore && git commit -m "pin snapshot"
 
 stages:
   profile:
@@ -28,7 +28,7 @@ stages:
       - scripts/run_profile.py
       - src/pricing/quality/profiling.py
       - src/pricing/graph
-      - ../synthetic
+      - data/snapshot_synthetic_v1
     outs:
       - reports/profile_report.md:
           cache: false
@@ -45,7 +45,7 @@ stages:
       - src/pricing/engine
       - src/pricing/contracts
       - src/pricing/graph
-      - ../synthetic
+      - data/snapshot_synthetic_v1
     outs:
       - reports/waterfall_facts.csv:
           cache: false

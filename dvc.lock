@@ -1,0 +1,85 @@
+schema: '2.0'
+stages:
+  profile:
+    cmd: python scripts/run_profile.py
+    deps:
+    - path: data/snapshot_synthetic_v1
+      hash: md5
+      md5: 63031c8af3726c6a3ca808e467b8643f.dir
+      size: 164409
+      nfiles: 8
+    - path: scripts/run_profile.py
+      hash: md5
+      md5: 9b83f1c813f33fac5709f999ca037340
+      size: 2901
+      isexec: true
+    - path: src/pricing/graph
+      hash: md5
+      md5: 9d3b2ae2d4b918cfcafd2429fe168f23.dir
+      size: 51347
+      nfiles: 8
+    - path: src/pricing/quality/profiling.py
+      hash: md5
+      md5: b26aee3c5e50e433cfe98be88073c5e0
+      size: 12964
+      isexec: true
+    outs:
+    - path: reports/profile_amount_reconciliation.csv
+      hash: md5
+      md5: 7f08592edd154280bf0755a3503cab79
+      size: 409
+      isexec: true
+    - path: reports/profile_null_rates.csv
+      hash: md5
+      md5: 44cdf4463c54e73d6598eff41c1674fd
+      size: 2145
+      isexec: true
+    - path: reports/profile_report.md
+      hash: md5
+      md5: 283cdfcd48c9b7e8daa8ffcc2bd952a0
+      size: 21124
+      isexec: true
+  waterfall:
+    cmd: python scripts/run_waterfall.py
+    deps:
+    - path: data/snapshot_synthetic_v1
+      hash: md5
+      md5: 63031c8af3726c6a3ca808e467b8643f.dir
+      size: 164409
+      nfiles: 8
+    - path: scripts/run_waterfall.py
+      hash: md5
+      md5: e75bddca19c79b854958202266c9a99d
+      size: 5901
+      isexec: true
+    - path: src/pricing/contracts
+      hash: md5
+      md5: 4df7a348873c161bfa47ae3bf8db724c.dir
+      size: 26441
+      nfiles: 4
+    - path: src/pricing/engine
+      hash: md5
+      md5: bb9a166de1eeff40be70d37a07093e50.dir
+      size: 76118
+      nfiles: 10
+    - path: src/pricing/graph
+      hash: md5
+      md5: 9d3b2ae2d4b918cfcafd2429fe168f23.dir
+      size: 51347
+      nfiles: 8
+    outs:
+    - path: reports/engine_result.json
+      hash: md5
+      md5: 5770a7b411d8692fa4cb2f8f0bb7df03
+      size: 63669
+      isexec: true
+    - path: reports/waterfall_facts.csv
+      hash: md5
+      md5: ab1f0d4fbb2d720f4c2702fe419bb7a4
+      size: 561308
+      isexec: true
+    - path: reports/waterfall_totals.csv
+      hash: md5
+      md5: af6ef1c73f0dcefe58e5e0b25fb3947e
+      size: 459
+      isexec: true
