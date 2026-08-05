@@ -1,0 +1,56 @@
+# DVC pipeline for the AXIOM Pricing Module.
+#
+#   dvc repro          reproduce everything that is out of date
+#   dvc repro profile  reproduce a single stage
+#   dvc dag            show the dependency graph
+#
+# The point of this file is the Brief's reproducibility requirement:
+#
+#     "Any result regenerates from versioned data + registered model via a
+#      single pipeline command."                    -- acceptance criteria
+#
+# DVC tracks the *bytes* of the snapshot and the derived outputs; MLflow tracks
+# the *runs*. They meet at the snapshot hash, which both record. Given an MLflow
+# run you can find the exact snapshot; given the snapshot you can regenerate the
+# run.
+#
+# Note: the data snapshot itself is versioned separately with `dvc add`, because
+# it is an input we receive rather than something this pipeline produces:
+#
+#     dvc add ../synthetic          # or ../snapshot_2026-07-08
+#     git add ../synthetic.dvc .gitignore && git commit -m "pin snapshot"
+
+stages:
+  profile:
+    desc: Profile the snapshot -- counts, null rates, distributions, integrity
+    cmd: python scripts/run_profile.py
+    deps:
+      - scripts/run_profile.py
+      - src/pricing/quality/profiling.py
+      - src/pricing/graph
+      - ../synthetic
+    outs:
+      - reports/profile_report.md:
+          cache: false
+      - reports/profile_null_rates.csv:
+          cache: false
+      - reports/profile_amount_reconciliation.csv:
+          cache: false
+
+  waterfall:
+    desc: Run the price waterfall and every aggregation, emit the Track B contract
+    cmd: python scripts/run_waterfall.py
+    deps:
+      - scripts/run_waterfall.py
+      - src/pricing/engine
+      - src/pricing/contracts
+      - src/pricing/graph
+      - ../synthetic
+    outs:
+      - reports/waterfall_facts.csv:
+          cache: false
+      - reports/engine_result.json:
+          cache: false
+    metrics:
+      - reports/waterfall_totals.csv:
+          cache: false

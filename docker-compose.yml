@@ -1,0 +1,56 @@
+# Local development stack for Track A.
+#
+#   docker compose up -d
+#
+# Two services, both entirely local -- no external cloud calls, matching the
+# air-gapped deployment target in the Brief.
+#
+#   neo4j   : a LOCAL graph for practising Cypher and, later, for loading the
+#             CSV snapshot so the neo4j code path can be tested before we ever
+#             touch the real NIOUS graph. This is NOT the client graph.
+#   mlflow  : experiment tracking + model registry (needed from Week 2).
+#
+# Week 1 does not require either of these to be running -- the CSV backend works
+# standalone. They are here so the environment is complete and reproducible.
+
+services:
+  neo4j:
+    image: neo4j:5.22-community
+    container_name: axiom-neo4j-local
+    ports:
+      - "7474:7474"   # Browser UI  -> http://localhost:7474
+      - "7687:7687"   # Bolt driver
+    environment:
+      NEO4J_AUTH: neo4j/localdevpassword
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_apoc_import_file_enabled: "true"
+      NEO4J_server_memory_heap_max__size: 2G
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      # Mount the CSV snapshot so LOAD CSV can read it:
+      #   LOAD CSV WITH HEADERS FROM 'file:///customers.csv' AS row ...
+      - ../synthetic:/var/lib/neo4j/import:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      retries: 12
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.14.1
+    container_name: axiom-mlflow
+    ports:
+      - "5000:5000"   # UI -> http://localhost:5000
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+    volumes:
+      - mlflow_data:/mlflow
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
+  mlflow_data:

@@ -1,0 +1,23 @@
+.env
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+mlruns/
+mlartifacts/
+mlflow.db
+mlflow.db-journal
+.venv/
+venv/
+
+# Generated artefacts -- regenerate with the scripts, do not commit
+reports/*.csv
+reports/*.md
+reports/*.json
+reports/*.txt
+!reports/.gitkeep
+
+# Data snapshots are versioned with DVC, not git
+snapshot_*/
+*.dvc.lock

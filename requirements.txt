@@ -1,0 +1,30 @@
+# AXIOM Pricing Module - Track A
+# Week 1 environment. Pinned loosely; freeze exact versions at the Week 2 gate.
+
+# --- core analysis -------------------------------------------------------
+pandas>=2.2
+numpy>=1.26
+tabulate>=0.9          # DataFrame.to_markdown() for the profiling report
+
+# --- graph access --------------------------------------------------------
+neo4j>=5.20            # official driver; unused until credentials arrive
+
+# --- MLOps (Week 2 onward, installed now so the environment is complete) --
+mlflow>=2.14           # experiment tracking + model registry
+dvc>=3.50              # data & pipeline versioning
+python-dotenv>=1.0     # load .env
+
+# --- notebook ------------------------------------------------------------
+jupyterlab>=4.2
+matplotlib>=3.8
+seaborn>=0.13
+
+# --- quality -------------------------------------------------------------
+pytest>=8.2
+ruff>=0.5
+
+# --- later phases (commented until needed, listed so nothing is a surprise)
+# scikit-learn>=1.5    # Week 5: segmentation, elasticity, win-probability
+# statsmodels>=0.14    # Week 5: log-log elasticity regression
+# pymc>=5.16           # Week 5: hierarchical/Bayesian shrinkage
+# polars>=1.0          # if pandas becomes the bottleneck on the real graph
