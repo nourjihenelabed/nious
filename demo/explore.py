@@ -88,10 +88,12 @@ class Explorer:
         self.months = sorted(orders["month"].unique())
         self.run = run
         self.labels = labels
-        self.customer_names = (
-            w.facts.drop_duplicates("customer_id").set_index("customer_id")["legal_name"].to_dict()
-            if "legal_name" in w.facts.columns else {}
+        names = (
+            w.facts.drop_duplicates("customer_id").set_index("customer_id")["legal_name"]
+            if "legal_name" in w.facts.columns else pd.Series(dtype=str)
         )
+        # Some names read "Company — City"; show them as "Company, City".
+        self.customer_names = names.astype(str).str.replace(" — ", ", ", regex=False).to_dict()
         self.recs = run.models.get("recommendations")
         self._opportunity = None
 

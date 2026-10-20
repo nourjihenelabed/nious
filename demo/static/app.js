@@ -67,6 +67,7 @@ document.addEventListener("click", (e) => {
 
 /* --------------------------------------------------------------- tabs */
 const FILTERED_TABS = new Set(["overview", "explore", "customers"]);
+const TABS = ["how", "overview", "explore", "customers", "advisor", "opportunity"];
 function showTab(name) {
   TAB = name;
   $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
@@ -74,6 +75,7 @@ function showTab(name) {
   $("#filterbar").hidden = !FILTERED_TABS.has(name);
   render();
   try { localStorage.setItem("axiom-tab3", name); } catch (_) {}
+  history.replaceState(null, "", "#" + name);
   window.scrollTo({ top: 0 });
 }
 $$(".tab").forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
@@ -95,8 +97,12 @@ async function poll() {
   buildFilterBar();
   await refresh(false);
   $("#loading").hidden = true;
+  // A link like /#advisor or /#customers/CUST0251 opens that page directly.
+  const [hashTab, hashCustomer] = location.hash.slice(1).split("/");
   let tab = "how"; try { tab = localStorage.getItem("axiom-tab3") || "how"; } catch (_) {}
+  if (TABS.includes(hashTab)) tab = hashTab;
   showTab(tab);
+  if (hashCustomer) openCustomer(decodeURIComponent(hashCustomer));
 }
 
 /* --------------------------------------------------------------- filters */
