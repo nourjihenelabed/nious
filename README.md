@@ -6,7 +6,7 @@ Built by Nourjihen Elabed during an internship at NIOUS GmbH (2026), as the pric
 
 ---
 
-## What it does, in plain words
+## What it does ?
 
 1. **Reads the sales data.** Orders, invoices, discounts, rebates, costs, and quotes that were won or lost.
 2. **Checks it before using it.** If the data contradicts itself, the engine stops and says why, instead of producing wrong numbers.
