@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AXIOM Pricing</title>
+<link rel="icon" href="/static/nious-logo.png">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="bar">
+  <div class="brand">
+    <img src="/static/nious-logo.png" alt="NIOUS" class="logo">
+    <div class="title"><b>AXIOM Pricing</b><span>Pricing intelligence from your own sales data</span></div>
+  </div>
+  <div class="bar-right">
+    <div id="status" class="pills" aria-live="polite"></div>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" class="tab active" data-tab="how"><span class="ti">?</span>How it works</button>
+  <button role="tab" class="tab" data-tab="overview"><span class="ti">◎</span>Overview</button>
+  <button role="tab" class="tab" data-tab="explore"><span class="ti">▤</span>Margin explorer</button>
+  <button role="tab" class="tab" data-tab="customers"><span class="ti">◉</span>Customers</button>
+  <button role="tab" class="tab" data-tab="advisor"><span class="ti">◆</span>Price advisor</button>
+  <button role="tab" class="tab" data-tab="opportunity"><span class="ti">▲</span>Opportunity</button>
+</nav>
+
+<section class="filterbar" id="filterbar" hidden>
+  <div class="fb-inner">
+    <div class="fb-controls" id="fb-controls"></div>
+    <div class="fb-active" id="fb-active"></div>
+  </div>
+</section>
+
+<div id="loading" class="loading">
+  <div class="spinner"></div>
+  <p><b>Reading your sales data</b></p>
+  <p class="muted small" id="loading-step">Starting…</p>
+</div>
+
+<main class="page" id="page-overview" hidden></main>
+<main class="page" id="page-explore" hidden></main>
+<main class="page" id="page-customers" hidden></main>
+<main class="page" id="page-advisor" hidden></main>
+<main class="page" id="page-opportunity" hidden></main>
+<main class="page" id="page-how" hidden></main>
+
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <button class="drawer-close" id="drawer-close" aria-label="Close">×</button>
+  <div id="drawer-body"></div>
+</aside>
+<div class="scrim" id="scrim" hidden></div>
+<div class="tip" id="tip" hidden></div>
+
+<footer class="foot muted small">AXIOM Pricing Module · NIOUS GmbH · runs entirely on your own infrastructure: no cloud, no data leaves the building.</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
