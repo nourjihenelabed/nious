@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" font-family="Segoe UI, system-ui, -apple-system, Helvetica Neue, sans-serif">
+
+  <defs>
+    <marker id="arw" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0F6E5C"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="900" fill="#FAF8F3"/>
+
+  <!-- ================= title ================= -->
+  <text x="60" y="56" font-size="13" letter-spacing="2.6" fill="#8A9187">TRACK A · PRICING ENGINE — EACH STAGE CONSUMES THE ONE BEFORE IT</text>
+  <text x="60" y="95" font-size="33" font-weight="600" fill="#1C1F1A">Knowledge graph → recommended price</text>
+  <line x1="60" y1="116" x2="1540" y2="116" stroke="#DDD7C9" stroke-width="1"/>
+
+  <!-- ================= the chain ================= -->
+  <!-- 6 nodes across: x = 60, 310, 560, 810, 1060, 1310 ; width 210 ; gap 40 -->
+
+  <!-- 1. knowledge graph -->
+  <rect x="60" y="168" width="210" height="112" rx="8" fill="#EFEADF" stroke="#C4BCA9" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="80" y="196" font-size="11.5" letter-spacing="1.4" fill="#8A9187">INPUT</text>
+  <text x="80" y="222" font-size="17" font-weight="600" fill="#1C1F1A">Knowledge</text>
+  <text x="80" y="243" font-size="17" font-weight="600" fill="#1C1F1A">graph</text>
+  <text x="80" y="266" font-size="12.5" fill="#5E645A">Neo4j · read-only</text>
+
+  <!-- 2. waterfall -->
+  <rect x="310" y="168" width="210" height="112" rx="8" fill="#FFFFFF" stroke="#0F6E5C" stroke-width="2"/>
+  <text x="330" y="196" font-size="11.5" letter-spacing="1.4" fill="#0F6E5C">BUILT · D2</text>
+  <text x="330" y="222" font-size="17" font-weight="600" fill="#1C1F1A">Price waterfall</text>
+  <text x="330" y="243" font-size="17" font-weight="600" fill="#1C1F1A">computation</text>
+  <text x="330" y="266" font-size="12.5" fill="#5E645A">list → pocket margin</text>
+
+  <!-- 3. segmentation -->
+  <rect x="560" y="168" width="210" height="112" rx="8" fill="#FFFFFF" stroke="#B07A16" stroke-width="2"/>
+  <text x="580" y="196" font-size="11.5" letter-spacing="1.4" fill="#B07A16">WEEK 5 · D4</text>
+  <text x="580" y="222" font-size="17" font-weight="600" fill="#1C1F1A">Customer</text>
+  <text x="580" y="243" font-size="17" font-weight="600" fill="#1C1F1A">segmentation</text>
+  <text x="580" y="266" font-size="12.5" fill="#5E645A">k-means · hierarchical</text>
+
+  <!-- 4. elasticity -->
+  <rect x="810" y="168" width="210" height="112" rx="8" fill="#FFFFFF" stroke="#B07A16" stroke-width="2"/>
+  <text x="830" y="196" font-size="11.5" letter-spacing="1.4" fill="#B07A16">WEEK 5 · D5</text>
+  <text x="830" y="222" font-size="17" font-weight="600" fill="#1C1F1A">Price elasticity</text>
+  <text x="830" y="243" font-size="17" font-weight="600" fill="#1C1F1A">model</text>
+  <text x="830" y="266" font-size="12.5" fill="#5E645A">log-log β per segment</text>
+
+  <!-- 5. optimiser -->
+  <rect x="1060" y="168" width="210" height="112" rx="8" fill="#FFFFFF" stroke="#C4BCA9" stroke-width="2"/>
+  <text x="1080" y="196" font-size="11.5" letter-spacing="1.4" fill="#8A9187">WEEK 6 · D6</text>
+  <text x="1080" y="222" font-size="17" font-weight="600" fill="#1C1F1A">Price</text>
+  <text x="1080" y="243" font-size="17" font-weight="600" fill="#1C1F1A">optimiser</text>
+  <text x="1080" y="266" font-size="12.5" fill="#5E645A">max Π(p)</text>
+
+  <!-- 6. output -->
+  <rect x="1310" y="168" width="230" height="112" rx="8" fill="#DCEBE5" stroke="#0F6E5C" stroke-width="2.5"/>
+  <text x="1330" y="196" font-size="11.5" letter-spacing="1.4" fill="#0F6E5C">OUTPUT</text>
+  <text x="1330" y="222" font-size="17" font-weight="600" fill="#0F6E5C">Recommended</text>
+  <text x="1330" y="243" font-size="17" font-weight="600" fill="#0F6E5C">price</text>
+  <text x="1330" y="266" font-size="12.5" fill="#3A5B52">range + confidence</text>
+
+  <!-- arrows -->
+  <g stroke="#0F6E5C" stroke-width="2.5" fill="none" marker-end="url(#arw)">
+    <line x1="272" y1="224" x2="302" y2="224"/>
+    <line x1="522" y1="224" x2="552" y2="224"/>
+    <line x1="772" y1="224" x2="802" y2="224"/>
+    <line x1="1022" y1="224" x2="1052" y2="224"/>
+    <line x1="1272" y1="224" x2="1302" y2="224"/>
+  </g>
+
+  <!-- ================= optimiser detail box ================= -->
+  <path d="M 1165 280 L 1165 318" stroke="#C4BCA9" stroke-width="1.5" fill="none"/>
+  <rect x="1000" y="318" width="330" height="118" rx="7" fill="#F4F1E8" stroke="#C4BCA9" stroke-width="1.2"/>
+  <text x="1020" y="344" font-size="12" letter-spacing="1.4" fill="#8A9187">THE OPTIMISER COMBINES THREE THINGS</text>
+  <g font-size="13.5" fill="#3F453C">
+    <circle cx="1027" cy="366" r="3" fill="#0F6E5C"/>
+    <text x="1040" y="371">Grid search over an explicit price ladder</text>
+    <circle cx="1027" cy="392" r="3" fill="#0F6E5C"/>
+    <text x="1040" y="397">PyMC — Bayesian win probability, with intervals</text>
+    <circle cx="1027" cy="418" r="3" fill="#0F6E5C"/>
+    <text x="1040" y="423">Business constraints: floor · ceiling · volume</text>
+  </g>
+
+  <!-- ================= dependency band ================= -->
+  <text x="60" y="512" font-size="13" letter-spacing="2" font-weight="600" fill="#0F6E5C">WHY EACH STAGE NEEDS THE ONE BEFORE IT</text>
+  <line x1="60" y1="526" x2="1540" y2="526" stroke="#DDD7C9" stroke-width="1"/>
+
+  <!-- dep 1 -->
+  <text x="60" y="562" font-size="14" font-weight="600" fill="#1C1F1A">Graph → Waterfall</text>
+  <text x="60" y="584" font-size="13" fill="#5E645A">The decomposition needs list price and unit cost</text>
+  <text x="60" y="604" font-size="13" fill="#5E645A">from Product, and the applied amount from every</text>
+  <text x="60" y="624" font-size="13" fill="#5E645A">discount edge. Nothing else in the system has them.</text>
+
+  <!-- dep 2 -->
+  <text x="440" y="562" font-size="14" font-weight="600" fill="#1C1F1A">Waterfall → Segmentation</text>
+  <text x="440" y="584" font-size="13" fill="#5E645A">We segment on <tspan font-style="italic">pricing behaviour</tspan> — realisation,</text>
+  <text x="440" y="604" font-size="13" fill="#5E645A">leakage, margin contribution. Those are waterfall</text>
+  <text x="440" y="624" font-size="13" fill="#5E645A">outputs. Without it we'd cluster on revenue.</text>
+
+  <!-- dep 3 -->
+  <text x="820" y="562" font-size="14" font-weight="600" fill="#1C1F1A">Segmentation → Elasticity</text>
+  <text x="820" y="584" font-size="13" fill="#5E645A">One global elasticity is meaningless. Segments</text>
+  <text x="820" y="604" font-size="13" fill="#5E645A">define the groups β is estimated within, and the</text>
+  <text x="820" y="624" font-size="13" fill="#5E645A">hierarchy that shrinkage pools thin ones toward.</text>
+
+  <!-- dep 4 -->
+  <text x="1200" y="562" font-size="14" font-weight="600" fill="#1C1F1A">Elasticity → Optimiser</text>
+  <text x="1200" y="584" font-size="13" fill="#5E645A">The search needs to know how demand responds</text>
+  <text x="1200" y="604" font-size="13" fill="#5E645A">to a price move. Without elasticity there is no</text>
+  <text x="1200" y="624" font-size="13" fill="#5E645A">curve to find a peak on.</text>
+
+  <!-- ================= the consequence ================= -->
+  <rect x="60" y="668" width="1480" height="70" rx="7" fill="#F6EEEA" stroke="#DCC4BA" stroke-width="1.2"/>
+  <text x="82" y="696" font-size="13" letter-spacing="1.6" font-weight="600" fill="#A8412A">THE CONSEQUENCE OF A CHAIN</text>
+  <text x="82" y="722" font-size="14" fill="#5A3A31">An error at any stage propagates to every stage after it — which is why the waterfall had to be exact before anything else was allowed to start, and why the readiness score gates the statistical half.</text>
+
+  <!-- ================= governance rail ================= -->
+  <rect x="60" y="756" width="1480" height="66" rx="7" fill="#F1EDE3" stroke="#DDD7C9" stroke-width="1"/>
+  <text x="82" y="782" font-size="13" letter-spacing="1.6" font-weight="600" fill="#0F6E5C">CARRIED THROUGH EVERY STAGE</text>
+  <g font-size="13.5" fill="#3F453C">
+    <text x="82"   y="806">Evidence IDs</text>
+    <text x="250"  y="806">·  Confidence + its reasons</text>
+    <text x="510"  y="806">·  Abstain when evidence is thin</text>
+    <text x="810"  y="806">·  Snapshot hash for provenance</text>
+    <text x="1130" y="806">·  Versioned data + model (DVC · MLflow)</text>
+  </g>
+
+  <!-- ================= legend ================= -->
+  <g font-size="12.5" fill="#5E645A">
+    <rect x="60" y="848" width="13" height="13" rx="2.5" fill="#FFFFFF" stroke="#0F6E5C" stroke-width="1.5"/>
+    <text x="82" y="859">Built and tested</text>
+    <rect x="240" y="848" width="13" height="13" rx="2.5" fill="#FFFFFF" stroke="#B07A16" stroke-width="1.5"/>
+    <text x="262" y="859">In progress — Week 5</text>
+    <rect x="450" y="848" width="13" height="13" rx="2.5" fill="#FFFFFF" stroke="#C4BCA9" stroke-width="1.5"/>
+    <text x="472" y="859">Week 6</text>
+    <rect x="580" y="848" width="13" height="13" rx="2.5" fill="#EFEADF" stroke="#C4BCA9" stroke-width="1.5" stroke-dasharray="3 2"/>
+    <text x="602" y="859">Given to me</text>
+  </g>
+  <text x="1540" y="859" font-size="12" fill="#8A9187" text-anchor="end">engine v0.3.0 · 78 tests · Nourjihen Elabed</text>
+
+</svg>

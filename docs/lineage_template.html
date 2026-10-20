@@ -1,0 +1,368 @@
+<title>Waterfall Lineage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+
+<style>
+:root{
+  --ground:#F1F3EF; --plate:#FFFFFF; --plate-2:#F7F9F6;
+  --ink:#17201C; --ink-2:#5A6660; --ink-3:#8A948E;
+  --rule:#D6DCD6; --rule-2:#E7EBE6;
+  --structure:#14615C; --structure-soft:#DCEAE8;
+  --signal:#B0761A; --signal-soft:#F6EBD6;
+  --ok:#2E6F4E; --ok-soft:#DFEDE4;
+  --stop:#9C4750; --stop-soft:#F4E2E3;
+  --shadow:0 1px 2px rgba(23,32,28,.06), 0 8px 24px -16px rgba(23,32,28,.22);
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+  --serif:"IBM Plex Serif",Georgia,serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1412; --plate:#171D19; --plate-2:#1C231F;
+    --ink:#E4EAE5; --ink-2:#98A49D; --ink-3:#6E7A74;
+    --rule:#2A332E; --rule-2:#222A25;
+    --structure:#4FB3AC; --structure-soft:#123330;
+    --signal:#DFA53E; --signal-soft:#33280F;
+    --ok:#5FB483; --ok-soft:#12291D;
+    --stop:#D2818B; --stop-soft:#301A1D;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1412; --plate:#171D19; --plate-2:#1C231F;
+  --ink:#E4EAE5; --ink-2:#98A49D; --ink-3:#6E7A74;
+  --rule:#2A332E; --rule-2:#222A25;
+  --structure:#4FB3AC; --structure-soft:#123330;
+  --signal:#DFA53E; --signal-soft:#33280F;
+  --ok:#5FB483; --ok-soft:#12291D;
+  --stop:#D2818B; --stop-soft:#301A1D;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--serif); font-size:15px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:32px 24px 72px}
+
+/* ---- masthead ---- */
+.masthead{display:flex; flex-direction:column; gap:10px; padding-bottom:20px; border-bottom:2px solid var(--ink)}
+.eyebrow{
+  font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--structure);
+}
+h1{
+  font-family:var(--cond); font-weight:700; font-size:clamp(30px,4.4vw,46px);
+  line-height:1.04; letter-spacing:-.01em; margin:0; text-wrap:balance;
+}
+.standfirst{max-width:64ch; color:var(--ink-2); margin:0; font-size:16px}
+.meta{
+  display:flex; flex-wrap:wrap; gap:6px 20px; font-family:var(--mono);
+  font-size:11.5px; color:var(--ink-3); padding-top:4px;
+}
+.meta b{color:var(--ink-2); font-weight:500}
+
+/* ---- trace picker ---- */
+.picker{margin:28px 0 6px}
+.picker h2{
+  font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--ink-3); margin:0 0 10px;
+}
+.traces{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:10px}
+.trace{
+  display:flex; flex-direction:column; gap:5px; text-align:left; cursor:pointer;
+  background:var(--plate); border:1px solid var(--rule); border-left:3px solid var(--rule);
+  border-radius:3px; padding:13px 15px; color:inherit; font:inherit;
+  transition:border-color .16s, background .16s, transform .16s;
+}
+.trace:hover{border-color:var(--structure); transform:translateY(-1px)}
+.trace[aria-pressed="true"]{border-color:var(--rule); border-left-color:var(--signal); background:var(--plate)}
+.trace:focus-visible{outline:2px solid var(--structure); outline-offset:2px}
+.trace .q{display:block; font-family:var(--cond); font-weight:600; font-size:16px; line-height:1.25}
+.trace .a{display:block; font-family:var(--mono); font-size:13px; font-weight:500; color:var(--ink-2)}
+.trace[aria-pressed="true"] .a{color:var(--signal)}
+.trace .src{display:block; font-family:var(--mono); font-size:10.5px; color:var(--ink-3); letter-spacing:.02em}
+
+/* ---- main split ---- */
+.split{display:grid; grid-template-columns:minmax(0,340px) minmax(0,1fr); gap:26px; margin-top:26px; align-items:start}
+@media (max-width:880px){ .split{grid-template-columns:1fr} }
+
+/* ---- the spine ---- */
+.spine{position:relative; display:flex; flex-direction:column}
+.spine::before{
+  content:""; position:absolute; left:15px; top:16px; bottom:22px; width:2px;
+  background:var(--rule); border-radius:2px;
+}
+.spine[data-lit="true"]::after{
+  content:""; position:absolute; left:15px; top:16px; width:2px; height:var(--lit,0px);
+  background:var(--signal); border-radius:2px; transition:height .3s ease;
+}
+.stage{
+  position:relative; display:grid; grid-template-columns:32px minmax(0,1fr); gap:12px;
+  align-items:start; background:none; border:0; padding:7px 8px 7px 0; margin:0;
+  font:inherit; color:inherit; text-align:left; cursor:pointer; border-radius:3px;
+}
+.stage:focus-visible{outline:2px solid var(--structure); outline-offset:1px}
+.pip{
+  position:relative; z-index:1; width:32px; height:32px; border-radius:50%;
+  display:grid; place-items:center; background:var(--plate);
+  border:2px solid var(--rule); color:var(--ink-3);
+  font-family:var(--mono); font-size:12px; font-weight:600; transition:.16s;
+}
+.stage-body{display:flex; flex-direction:column; gap:2px; padding-top:4px; min-width:0}
+.stage-name{display:block; font-family:var(--cond); font-weight:600; font-size:15.5px; line-height:1.2}
+.stage-tool{display:block; font-family:var(--mono); font-size:11px; color:var(--ink-3)}
+.stage-val{
+  display:block; font-family:var(--mono); font-size:12px; font-weight:500;
+  color:var(--ink-2); font-variant-numeric:tabular-nums;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.stage:hover .pip{border-color:var(--structure); color:var(--structure)}
+.stage[data-role="carries"] .pip{border-color:var(--signal); color:var(--signal)}
+.stage[data-role="carries"] .stage-val{color:var(--signal)}
+.stage[data-role="abstains"] .pip{border-color:var(--stop); color:var(--stop)}
+.stage[data-role="abstains"] .stage-val{color:var(--stop)}
+.stage[data-role="skipped"]{opacity:.42}
+.stage[aria-current="true"] .pip{background:var(--ink); border-color:var(--ink); color:var(--ground)}
+.stage[aria-current="true"] .stage-name{text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:3px}
+
+/* ---- detail plate ---- */
+.detail{
+  background:var(--plate); border:1px solid var(--rule); border-radius:4px;
+  box-shadow:var(--shadow); overflow:hidden; position:sticky; top:22px;
+}
+@media (max-width:880px){ .detail{position:static} }
+.detail-head{padding:20px 22px 16px; border-bottom:1px solid var(--rule-2)}
+.crumb{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--structure); margin-bottom:7px;
+}
+.detail-head h3{font-family:var(--cond); font-weight:700; font-size:25px; margin:0 0 6px; line-height:1.15}
+.detail-head p{margin:0; color:var(--ink-2); max-width:62ch}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:13px}
+.chip{
+  font-family:var(--mono); font-size:10.5px; font-weight:500; letter-spacing:.03em;
+  padding:3px 8px; border-radius:2px; background:var(--structure-soft); color:var(--structure);
+  border:1px solid transparent;
+}
+.chip.role-carries{background:var(--signal-soft); color:var(--signal)}
+.chip.role-abstains{background:var(--stop-soft); color:var(--stop)}
+.chip.role-skipped{background:var(--rule-2); color:var(--ink-3)}
+.detail-body{padding:18px 22px 22px; display:flex; flex-direction:column; gap:18px}
+
+.block h4{
+  font-family:var(--mono); font-size:10.5px; font-weight:500; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--ink-3); margin:0 0 8px;
+}
+.io{display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:center}
+@media (max-width:520px){ .io{grid-template-columns:1fr; } .io .arrow{transform:rotate(90deg)} }
+.io-card{
+  background:var(--plate-2); border:1px solid var(--rule-2); border-radius:3px; padding:10px 12px;
+  font-family:var(--mono); font-size:12px; line-height:1.5; color:var(--ink-2); min-width:0;
+  white-space:pre-wrap; overflow-wrap:anywhere;
+}
+.io-card b{display:block; color:var(--ink); font-weight:500; font-size:11px;
+  letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px}
+.arrow{font-family:var(--mono); color:var(--ink-3); font-size:16px; text-align:center}
+
+.code{
+  font-family:var(--mono); font-size:12.5px; line-height:1.7; background:var(--plate-2);
+  border:1px solid var(--rule-2); border-left:3px solid var(--structure); border-radius:3px;
+  padding:12px 14px; overflow-x:auto; white-space:pre; color:var(--ink);
+}
+.code .cm{color:var(--ink-3)}
+.code .hl{color:var(--signal); font-weight:500}
+
+.calc{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:12.5px}
+.calc th{
+  text-align:left; font-weight:500; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--ink-3); padding:0 10px 7px 0; border-bottom:1px solid var(--rule);
+}
+.calc td{padding:6px 10px 6px 0; border-bottom:1px solid var(--rule-2); vertical-align:top}
+.calc td.n{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; padding-right:0}
+.calc tr.total td{border-bottom:0; border-top:2px solid var(--ink); font-weight:600; padding-top:8px}
+.calc tr.total td.n{color:var(--signal)}
+.calc td.na{color:var(--stop)}
+.calc-wrap{overflow-x:auto}
+
+.note{
+  font-size:14px; color:var(--ink-2); border-left:2px solid var(--rule);
+  padding-left:13px; margin:0;
+}
+.note em{color:var(--ink); font-style:italic}
+details.arith{border-top:1px solid var(--rule-2); padding-top:14px}
+details.arith summary{
+  font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--structure); cursor:pointer; list-style:none;
+}
+details.arith summary::-webkit-details-marker{display:none}
+details.arith summary::before{content:"+ "; font-weight:600}
+details.arith[open] summary::before{content:"– "}
+details.arith > *:not(summary){margin-top:12px}
+
+footer{
+  margin-top:44px; padding-top:18px; border-top:1px solid var(--rule);
+  font-family:var(--mono); font-size:11.5px; color:var(--ink-3); line-height:1.8;
+}
+footer b{color:var(--ink-2); font-weight:500}
+@media (prefers-reduced-motion:reduce){ *{transition:none !important; animation:none !important} }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">AXIOM Pricing Module · Track A · data lineage</div>
+    <h1>How do I get that number?</h1>
+    <p class="standfirst">Pick a number below and follow it back to the bytes it came from. Every
+      stage names the module and function that runs it, the library doing the work, and what the
+      number actually looks like at that point.</p>
+    <div class="meta">
+      <span><b>engine</b> v0.4.0</span>
+      <span><b>contract</b> v0.2.0-draft</span>
+      <span><b>tests</b> 155</span>
+      <span><b>profiles</b> b2b_industrial · dairy_al_kharj</span>
+    </div>
+  </header>
+
+  <section class="picker">
+    <h2>Trace a number</h2>
+    <div class="traces" id="traces" role="group" aria-label="Choose a number to trace"></div>
+  </section>
+
+  <div class="split">
+    <nav class="spine" id="spine" aria-label="Pipeline stages"></nav>
+    <article class="detail" id="detail" aria-live="polite"></article>
+  </div>
+
+  <footer>
+    <div><b>Reproduce any of this:</b> <code>dvc repro</code> — stages run in the order shown.</div>
+    <div><b>Check your data first:</b> <code>python scripts/check_data.py</code> — exits 1 if it would not run.</div>
+    <div><b>Provenance:</b> every result carries a sha256 over the source bytes, so a number can always be traced to the exact snapshot that produced it.</div>
+  </footer>
+</div>
+
+<script>
+const DATA = __LINEAGE_DATA__;
+const T = DATA.traces;
+const STAGES = DATA.stages;
+
+const ROLE_LABEL = {carries:"carries the number", abstains:"abstains here", skipped:"not on this path"};
+let traceKey = "pocket";
+let stageId = "source";
+
+const esc = s => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+function renderTraces(){
+  document.getElementById("traces").innerHTML = Object.entries(T).map(([k,t]) => `
+    <button class="trace" type="button" data-trace="${k}" aria-pressed="${k===traceKey}">
+      <span class="q">${esc(t.q)}</span>
+      <span class="a">${esc(t.a)}</span>
+      <span class="src">${esc(t.src)}</span>
+    </button>`).join("");
+}
+
+function renderSpine(){
+  const t = T[traceKey];
+  document.getElementById("spine").innerHTML = STAGES.map(s => {
+    const st = t.stages[s.id];
+    return `<button class="stage" type="button" data-stage="${s.id}"
+              data-role="${st.role}" aria-current="${s.id===stageId}">
+      <span class="pip">${s.n}</span>
+      <span class="stage-body">
+        <span class="stage-name">${esc(s.name)}</span>
+        <span class="stage-tool">${esc(s.tools.slice(0,2).join(" · "))}</span>
+        <span class="stage-val">${esc(st.val)}</span>
+      </span>
+    </button>`;
+  }).join("");
+  lightSpine();
+}
+
+function lightSpine(){
+  const spine = document.getElementById("spine");
+  const nodes = [...spine.querySelectorAll(".stage")];
+  const last = nodes.filter(n => n.dataset.role !== "skipped").pop();
+  if(!last){ spine.dataset.lit = "false"; return; }
+  const top = nodes[0].offsetTop, end = last.offsetTop + 16;
+  spine.dataset.lit = "true";
+  spine.style.setProperty("--lit", Math.max(0, end - top) + "px");
+}
+
+function calcTable(st){
+  if(!st.calc) return "";
+  const head = st.calcHead || ["step","how","value"];
+  const rows = st.calc.map((r,i) => {
+    const isTotal = st.total && i === st.calc.length - 1;
+    const na = /^n\/a$/i.test(r[2]);
+    return `<tr class="${isTotal ? "total" : ""}">
+      <td>${esc(r[0])}</td><td style="color:var(--ink-3)">${esc(r[1])}</td>
+      <td class="n ${na ? "na" : ""}">${esc(r[2])}</td></tr>`;
+  }).join("");
+  return `<div class="calc-wrap"><table class="calc">
+      <thead><tr><th>${head.map(esc).join("</th><th>")}</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+}
+
+function renderDetail(){
+  const t = T[traceKey];
+  const s = STAGES.find(x => x.id === stageId);
+  const st = t.stages[stageId];
+  const [inp, out] = st.io;
+
+  document.getElementById("detail").innerHTML = `
+    <div class="detail-head">
+      <div class="crumb">Stage ${s.n} of ${STAGES.length} · tracing ${esc(t.q).toLowerCase()}</div>
+      <h3>${esc(s.name)}</h3>
+      <p>${esc(s.what)}</p>
+      <div class="chips">
+        <span class="chip role-${st.role}">${ROLE_LABEL[st.role]}</span>
+        ${s.tools.map(x => `<span class="chip">${esc(x)}</span>`).join("")}
+      </div>
+    </div>
+    <div class="detail-body">
+      <div class="block">
+        <h4>Where it runs</h4>
+        <div class="code">${esc(s.where)}</div>
+      </div>
+      <div class="block">
+        <h4>In and out</h4>
+        <div class="io">
+          <div class="io-card"><b>in</b>${esc(inp)}</div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="io-card"><b>out</b>${esc(out)}</div>
+        </div>
+      </div>
+      <p class="note">${st.note}</p>
+      ${st.calc ? `<details class="arith" ${["chain","aggregate","extract"].includes(stageId) ? "open" : ""}>
+        <summary>Show the arithmetic</summary>${calcTable(st)}</details>` : ""}
+    </div>`;
+}
+
+function select(id){ stageId = id; renderSpine(); renderDetail(); }
+
+document.addEventListener("click", e => {
+  const trace = e.target.closest("[data-trace]");
+  if(trace){
+    traceKey = trace.dataset.trace;
+    renderTraces(); renderSpine(); renderDetail();
+    return;
+  }
+  const stage = e.target.closest("[data-stage]");
+  if(stage) select(stage.dataset.stage);
+});
+
+document.addEventListener("keydown", e => {
+  if(!["ArrowDown","ArrowUp"].includes(e.key)) return;
+  if(!e.target.closest("[data-stage]")) return;
+  e.preventDefault();
+  const i = STAGES.findIndex(s => s.id === stageId);
+  const next = STAGES[Math.min(STAGES.length - 1, Math.max(0, i + (e.key === "ArrowDown" ? 1 : -1)))];
+  select(next.id);
+  document.querySelector(`[data-stage="${next.id}"]`).focus();
+});
+
+window.addEventListener("resize", lightSpine);
+renderTraces(); renderSpine(); renderDetail();
+</script>

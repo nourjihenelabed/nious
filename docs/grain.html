@@ -1,0 +1,1591 @@
+<title>The Grain Decision</title>
+<style>
+  :root {
+    --ground:      #F7F4EE;
+    --surface:     #FFFFFF;
+    --surface-2:   #F0ECE3;
+    --surface-3:   #E7E2D5;
+    --ink:         #1C1F1A;
+    --ink-muted:   #5E645A;
+    --ink-faint:   #8C9287;
+    --rule:        #DDD7C9;
+    --rule-strong: #C4BCA9;
+    --accent:      #0F6E5C;
+    --accent-soft: #DCEBE5;
+    --clay:        #A8412A;
+    --clay-soft:   #F3E2DC;
+    --amber:       #96660D;
+    --amber-soft:  #F5E9CF;
+    --shadow:      0 1px 2px rgba(28,31,26,.06), 0 8px 24px -12px rgba(28,31,26,.18);
+
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+    --sans:  system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --mono:  ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #121614;
+      --surface:     #1A201D;
+      --surface-2:   #222926;
+      --surface-3:   #2B3330;
+      --ink:         #E9EAE4;
+      --ink-muted:   #9BA398;
+      --ink-faint:   #6E766B;
+      --rule:        #2E3733;
+      --rule-strong: #414B46;
+      --accent:      #4FB89B;
+      --accent-soft: #17322B;
+      --clay:        #DB8368;
+      --clay-soft:   #33211B;
+      --amber:       #D9A441;
+      --amber-soft:  #322715;
+      --shadow:      0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #121614;
+    --surface:     #1A201D;
+    --surface-2:   #222926;
+    --surface-3:   #2B3330;
+    --ink:         #E9EAE4;
+    --ink-muted:   #9BA398;
+    --ink-faint:   #6E766B;
+    --rule:        #2E3733;
+    --rule-strong: #414B46;
+    --accent:      #4FB89B;
+    --accent-soft: #17322B;
+    --clay:        #DB8368;
+    --clay-soft:   #33211B;
+    --amber:       #D9A441;
+    --amber-soft:  #322715;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: clamp(1.25rem, 3vw, 2.75rem) clamp(1rem, 3vw, 2rem) 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2.5rem, 5vw, 4rem);
+  }
+
+  /* ---------- type primitives ---------- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0;
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(1.8rem, 4.4vw, 3rem);
+    line-height: 1.1;
+    letter-spacing: -.015em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h1 em { font-style: italic; color: var(--accent); }
+
+  h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(1.35rem, 2.6vw, 1.85rem);
+    line-height: 1.18;
+    letter-spacing: -.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  p { margin: 0; }
+
+  .standfirst {
+    font-family: var(--serif);
+    font-size: clamp(1.02rem, 1.8vw, 1.16rem);
+    color: var(--ink-muted);
+    max-width: 64ch;
+  }
+
+  .prose { max-width: 68ch; color: var(--ink-muted); }
+  .prose strong { color: var(--ink); font-weight: 600; }
+
+  code, .m { font-family: var(--mono); font-size: .88em; }
+  code {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: .06em .32em;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+    border-bottom: 1px solid var(--rule-strong);
+    padding-bottom: 1.6rem;
+  }
+
+  .provenance {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem .5rem;
+    margin-top: .5rem;
+    font-family: var(--mono);
+    font-size: .69rem;
+    color: var(--ink-faint);
+  }
+  .provenance span {
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    border-radius: 2px;
+    padding: .15rem .45rem;
+  }
+
+  section { display: flex; flex-direction: column; gap: 1.4rem; }
+  .sec-head { display: flex; flex-direction: column; gap: .55rem; }
+
+  /* ---------- the finding ---------- */
+  .finding {
+    border: 1px solid var(--clay);
+    border-left: 4px solid var(--clay);
+    border-radius: 4px;
+    background: var(--surface);
+    padding: 1.2rem 1.35rem 1.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .finding .flabel {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--clay);
+  }
+  .finding h2 { color: var(--ink); }
+
+  .evidence {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: .7rem;
+  }
+
+  /* ---------- the instrument ---------- */
+  .instrument {
+    display: grid;
+    grid-template-columns: 15.5rem minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .instrument { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .rail {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  @media (max-width: 900px) {
+    .rail { flex-direction: row; overflow-x: auto; }
+  }
+
+  .rail button {
+    appearance: none;
+    display: flex;
+    align-items: baseline;
+    gap: .55rem;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink-muted);
+    font-family: var(--sans);
+    font-size: .8rem;
+    line-height: 1.3;
+    padding: .6rem .7rem;
+    cursor: pointer;
+    transition: background .12s ease, color .12s ease;
+  }
+  @media (max-width: 900px) {
+    .rail button { border-bottom: 0; border-right: 1px solid var(--rule); white-space: nowrap; }
+  }
+  .rail button:last-child { border-bottom: 0; border-right: 0; }
+  .rail button:hover { background: var(--surface-2); color: var(--ink); }
+  .rail button[aria-current="true"] {
+    background: var(--accent-soft);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  @media (max-width: 900px) {
+    .rail button[aria-current="true"] { box-shadow: inset 0 -3px 0 var(--accent); }
+  }
+  .rail .n { font-family: var(--mono); font-size: .68rem; color: var(--ink-faint); font-weight: 400; }
+  .rail button[aria-current="true"] .n { color: var(--accent); }
+
+  .stage {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .stage-head {
+    padding: 1.1rem 1.25rem .95rem;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+  }
+  .stage-title {
+    font-family: var(--serif);
+    font-size: clamp(1.15rem, 2.2vw, 1.5rem);
+    line-height: 1.15;
+    letter-spacing: -.01em;
+  }
+  .stage-body {
+    padding: 1.1rem 1.25rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+  }
+
+  .shape { display: flex; flex-wrap: wrap; gap: .35rem; font-family: var(--mono); font-size: .69rem; letter-spacing: .04em; }
+  .shape b {
+    font-weight: 500;
+    border: 1px solid var(--rule-strong);
+    border-radius: 2px;
+    padding: .12rem .45rem;
+    color: var(--ink-muted);
+    background: var(--surface-2);
+  }
+  .shape b.hot  { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .shape b.warn { background: var(--amber-soft);  border-color: var(--amber);  color: var(--amber); }
+  .shape b.bad  { background: var(--clay-soft);   border-color: var(--clay);   color: var(--clay); }
+
+  .note { font-family: var(--serif); font-size: .97rem; color: var(--ink-muted); max-width: 70ch; }
+  .note b { color: var(--ink); font-weight: 600; font-family: var(--sans); font-size: .93rem; }
+
+  /* ---------- data tables ---------- */
+  .scroller {
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--ground);
+  }
+
+  table.data {
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-variant-numeric: tabular-nums;
+    width: max-content;
+    min-width: 100%;
+  }
+  table.data th, table.data td {
+    padding: .3rem .55rem;
+    border-bottom: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+    text-align: right;
+    white-space: nowrap;
+    color: var(--ink);
+    background: var(--surface);
+  }
+  table.data th {
+    font-weight: 500;
+    color: var(--ink-muted);
+    background: var(--surface-2);
+  }
+  table.data td.t, table.data th.t { text-align: left; }
+  table.data tr:last-child td { border-bottom: 0; }
+  table.data th:last-child, table.data td:last-child { border-right: 0; }
+  table.data pre { margin: 0; font: inherit; white-space: pre; }
+
+  table.data tr.groups th {
+    text-align: left;
+    font-size: .62rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    background: var(--surface-3);
+    border-right: 1px solid var(--rule-strong);
+    padding: .22rem .55rem;
+  }
+
+  table.data .is-new,
+  table.data tr.groups th.is-new { background: var(--accent-soft); }
+  table.data th.is-new { color: var(--accent); }
+  table.data .is-assumed,
+  table.data tr.groups th.is-assumed { background: var(--amber-soft); }
+  table.data th.is-assumed { color: var(--amber); }
+  table.data .is-doubt,
+  table.data tr.groups th.is-doubt { background: var(--clay-soft); }
+  table.data th.is-doubt { color: var(--clay); }
+
+  td.neg { color: var(--clay); font-weight: 600; }
+  td.na  { color: var(--ink-faint); }
+
+  .keyline { display: flex; flex-wrap: wrap; gap: .35rem 1rem; font-size: .72rem; color: var(--ink-muted); }
+  .keyline i { display: inline-flex; align-items: center; gap: .35rem; font-style: normal; }
+  .keyline u { width: .85rem; height: .85rem; border-radius: 2px; text-decoration: none; border: 1px solid var(--rule-strong); display: inline-block; }
+  .keyline u.new { background: var(--accent-soft); border-color: var(--accent); }
+  .keyline u.asm { background: var(--amber-soft); border-color: var(--amber); }
+
+  /* ---------- controls ---------- */
+  .controls { display: flex; flex-wrap: wrap; gap: .55rem; align-items: center; }
+  .segmented {
+    display: inline-flex;
+    border: 1px solid var(--rule-strong);
+    border-radius: 3px;
+    overflow: hidden;
+    background: var(--surface-2);
+  }
+  .segmented button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-right: 1px solid var(--rule-strong);
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--ink-muted);
+    padding: .34rem .7rem;
+    cursor: pointer;
+    transition: background .12s ease, color .12s ease;
+  }
+  .segmented button:last-child { border-right: 0; }
+  .segmented button:hover { background: var(--surface-3); color: var(--ink); }
+  .segmented button[aria-pressed="true"] { background: var(--accent); color: var(--surface); font-weight: 600; }
+  .segmented.warn button[aria-pressed="true"] { background: var(--clay); color: var(--surface); }
+  .ctl-label { font-family: var(--sans); font-size: .74rem; font-weight: 600; color: var(--ink-muted); }
+
+  .steps {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .6rem;
+    padding-top: .5rem;
+    border-top: 1px solid var(--rule);
+  }
+  .steps button {
+    appearance: none;
+    background: var(--surface-2);
+    border: 1px solid var(--rule-strong);
+    border-radius: 3px;
+    font-family: var(--sans);
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--ink);
+    padding: .35rem .8rem;
+    cursor: pointer;
+  }
+  .steps button:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
+  .steps button:disabled { opacity: .35; cursor: default; }
+  .steps .hint { font-family: var(--mono); font-size: .68rem; color: var(--ink-faint); }
+
+  :where(button, a):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- cards ---------- */
+  .invariant { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .8rem; }
+  .card {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: .7rem .8rem;
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+  }
+  .card .k { font-family: var(--sans); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+  .card .v { font-family: var(--mono); font-size: 1.15rem; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .card .s { font-size: .74rem; color: var(--ink-muted); }
+  .card.locked { background: var(--accent-soft); border-color: var(--accent); }
+  .card.moves  { background: var(--amber-soft);  border-color: var(--amber); }
+  .card.alarm  { background: var(--clay-soft);   border-color: var(--clay); }
+  .card.alarm .v { color: var(--clay); }
+
+  /* ---------- matrix ---------- */
+  table.matrix { border-collapse: collapse; font-size: .78rem; width: 100%; min-width: 34rem; }
+  table.matrix th, table.matrix td { border-bottom: 1px solid var(--rule); padding: .4rem .6rem; text-align: left; vertical-align: top; }
+  table.matrix thead th {
+    font-family: var(--sans); font-size: .66rem; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 600; border-bottom: 1px solid var(--rule-strong);
+  }
+  table.matrix td.mono { font-family: var(--mono); font-size: .73rem; }
+  table.matrix tr:last-child td { border-bottom: 0; }
+
+  .tag { display: inline-block; font-family: var(--mono); font-size: .65rem; letter-spacing: .05em; border-radius: 2px; padding: .1rem .4rem; border: 1px solid; }
+  .tag.line { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .tag.txn  { color: var(--amber);  border-color: var(--amber);  background: var(--amber-soft); }
+  .tag.prod { color: var(--ink-muted); border-color: var(--rule-strong); background: var(--surface-2); }
+
+  /* ---------- objections ---------- */
+  .qa { display: flex; flex-direction: column; }
+  .qa details { border: 1px solid var(--rule); border-bottom: 0; background: var(--surface); }
+  .qa details:first-child { border-radius: 4px 4px 0 0; }
+  .qa details:last-child { border-bottom: 1px solid var(--rule); border-radius: 0 0 4px 4px; }
+  .qa summary {
+    cursor: pointer; list-style: none; padding: .8rem 1rem;
+    display: flex; gap: .7rem; align-items: baseline;
+    font-family: var(--serif); font-size: 1.02rem; color: var(--ink);
+  }
+  .qa summary::-webkit-details-marker { display: none; }
+  .qa summary::before {
+    content: "?";
+    font-family: var(--mono); font-size: .7rem; color: var(--clay);
+    border: 1px solid var(--clay); background: var(--clay-soft);
+    border-radius: 2px; width: 1.25rem; text-align: center; flex: none;
+  }
+  .qa details[open] summary { background: var(--surface-2); border-bottom: 1px solid var(--rule); }
+  .qa summary:hover { background: var(--surface-2); }
+  .qa .a { padding: .9rem 1rem 1.1rem 3rem; display: flex; flex-direction: column; gap: .7rem; color: var(--ink-muted); max-width: 80ch; }
+  .qa .a b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- production ---------- */
+  table.prod { border-collapse: collapse; width: 100%; font-size: .82rem; min-width: 42rem; }
+  table.prod th, table.prod td { border-bottom: 1px solid var(--rule); padding: .55rem .7rem; text-align: left; vertical-align: top; }
+  table.prod thead th {
+    font-family: var(--sans); font-size: .66rem; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 600; border-bottom: 1px solid var(--rule-strong);
+  }
+  table.prod td:first-child { font-weight: 600; color: var(--ink); width: 11rem; }
+  table.prod td.verdict { width: 6.5rem; }
+  table.prod tr.flagged td { background: var(--clay-soft); }
+  table.prod tr.flagged td:first-child { color: var(--clay); }
+  table.prod tr:last-child td { border-bottom: 0; }
+
+  .verdict-tag {
+    font-family: var(--mono); font-size: .65rem; letter-spacing: .06em; text-transform: uppercase;
+    padding: .12rem .4rem; border-radius: 2px; border: 1px solid; white-space: nowrap;
+  }
+  .verdict-tag.keep { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .verdict-tag.swap { color: var(--amber);  border-color: var(--amber);  background: var(--amber-soft); }
+  .verdict-tag.gap  { color: var(--clay);   border-color: var(--clay);   background: var(--surface); }
+
+  /* ---------- script ---------- */
+  .script {
+    background: var(--surface);
+    border: 1px solid var(--rule-strong);
+    border-left: 3px solid var(--accent);
+    border-radius: 3px;
+    padding: 1.1rem 1.3rem;
+    display: flex; flex-direction: column; gap: .85rem;
+    max-width: 76ch;
+  }
+  .script p { font-family: var(--serif); font-size: 1.02rem; color: var(--ink); }
+  .script p.q { color: var(--ink-muted); font-style: italic; }
+
+  footer {
+    border-top: 1px solid var(--rule-strong);
+    padding-top: 1.2rem;
+    font-family: var(--mono); font-size: .69rem; color: var(--ink-faint);
+    display: flex; flex-wrap: wrap; gap: .4rem 1.2rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">NIOUS · AXIOM Pricing Module · Track A — Pricing Engine &amp; MLOps</p>
+    <h1>One order, nine steps, <em>one table</em></h1>
+    <p class="standfirst">
+      The engine computes every waterfall number once, at the transaction-line grain, and derives every
+      aggregate from that one table by groupby. This page walks a single real order —
+      <span class="m">TRX-00011</span> — through all nine stages so you can watch the data change, makes
+      the case for the grain decision, and opens with a defect the walkthrough turned up.
+    </p>
+    <div class="provenance">
+      <span>snapshot_synthetic_v1</span>
+      <span>sha256 6af98ff70daf16a1…</span>
+      <span>700 transactions</span>
+      <span>1,408 lines</span>
+      <span>530 certified (75.7%)</span>
+      <span>54/54 reconciliation checks pass</span>
+    </div>
+  </header>
+
+  <!-- ============ THE FINDING ============ -->
+  <section>
+    <div class="finding">
+      <p class="flabel">Open first · unresolved · affects every published figure</p>
+      <h2>One deduction is being subtracted twice</h2>
+      <p class="prose">
+        The waterfall takes <code>list_value − gross_value</code> as a “negotiated off-list” step, then
+        separately subtracts the on-invoice discount edges. On this snapshot <strong>those are the same
+        money.</strong> For <strong>515 of the 530 certified transactions the two agree to floating-point
+        precision</strong> — not approximately, exactly — which means the line’s <code>unit_price</code>
+        is already net of the on-invoice discount, and the engine deducts it a second time.
+      </p>
+      <p class="prose">
+        Two independent checks in the raw data agree: <code>gross_amount</code> equals the sum of line
+        totals for every transaction, and <code>net_amount</code> equals <code>gross_amount</code> minus
+        the off-invoice edges for every transaction. So the snapshot’s own fields already describe the
+        waterfall as <em>list → on-invoice → invoice (= gross_amount) → off-invoice → pocket
+        (= net_amount)</em>, with no separate negotiated step at all. The <code>net_amount</code> field
+        the Week 2 write-up flagged as “reversed convention” turns out to be exactly the pocket price.
+      </p>
+
+      <div class="evidence">
+        <div class="card alarm"><span class="k">Transactions where the two match exactly</span><span class="v">515 / 530</span><span class="s">the other 15 differ by 10–20%, same direction</span></div>
+        <div class="card alarm"><span class="k">Pocket margin, as built</span><span class="v">18.20%</span><span class="s">4,119,830.86</span></div>
+        <div class="card locked"><span class="k">Pocket margin, restated</span><span class="v">29.61%</span><span class="s">7,789,440.45</span></div>
+        <div class="card alarm"><span class="k">Below-cost lines</span><span class="v">103 → 3</span><span class="s">the headline finding mostly dissolves</span></div>
+      </div>
+
+      <p class="prose">
+        <strong>This is a question for the data owner, not a patch to apply quietly.</strong> The engine’s
+        formula is correct for data where line prices are gross of discount; it is wrong for data where
+        they are net, and this snapshot is the second kind. Ask what <code>unit_price</code> on a
+        transaction line means. If it is net — which the evidence says — then <code>negotiated_off_list</code>
+        should be dropped and <code>invoice_price</code> should be <code>gross_value</code>, and Week 2’s
+        open question 4 has its answer: the 11.9% “negotiated gap” is not a real waterfall step.
+      </p>
+      <p class="prose">
+        Everything else on this page survives it. The grain decision is about <em>where facts are stored</em>;
+        this is about <em>what one step means</em>. Stage 5 below lets you switch between the two readings
+        and watch the consequences, which is a better thing to bring to a review than either number alone.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ THE INSTRUMENT ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>Watch the data change</h2>
+      <p class="prose">
+        Three order lines enter as five columns. They leave as forty-five, still three rows — nothing is
+        ever aggregated away. Step through, or use the arrow keys.
+      </p>
+    </div>
+
+    <div class="instrument">
+      <nav class="rail" id="rail" aria-label="Pipeline stages"></nav>
+      <div class="stage">
+        <div class="stage-head">
+          <p class="eyebrow" id="stageKicker"></p>
+          <div class="stage-title" id="stageTitle"></div>
+          <div class="shape" id="stageShape"></div>
+        </div>
+        <div class="stage-body">
+          <p class="note" id="stageNote"></p>
+          <div id="stageFig"></div>
+          <div class="steps">
+            <button id="prevBtn" type="button">← Previous</button>
+            <span class="hint" id="stepHint"></span>
+            <button id="nextBtn" type="button">Next →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ THE DEFENCE ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>The case, and the objections it has to survive</h2>
+      <p class="prose">
+        The claim is narrow, so state it narrowly: <strong>store the facts once, at the finest grain at
+        which any measure is observed; make every aggregate a view of that table, never a second
+        calculation.</strong> Here are the five questions most likely to come back at you, and what the
+        run output actually says.
+      </p>
+    </div>
+
+    <div class="qa">
+      <details open>
+        <summary>Line grain is false precision — the discounts aren’t line-level.</summary>
+        <div class="a">
+          <p>
+            Half-true, and worth conceding immediately. <b>List value, gross value and COGS are observed at
+            line grain</b> — quantity × a product attribute, or the line total itself. <b>On-invoice discount
+            and off-invoice leakage are not</b>; they hang off the transaction and are allocated pro-rata by
+            <code>line_total</code>.
+          </p>
+          <p>
+            The table stores both kinds and marks which is which, and the assumption sits behind one named
+            constant, <code>ALLOCATION_METHOD</code>. It is <b>lossless</b>: the parts sum back to the
+            transaction to the cent under any method, so every aggregate at transaction grain and above is
+            untouched by the choice. Change the method in stage 4 and watch the transaction total refuse to
+            move. Below transaction grain the choice genuinely matters — which is exactly why it is one
+            named constant rather than an expression buried in a join.
+          </p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Why not just build the aggregates you actually need?</summary>
+        <div class="a">
+          <p>
+            Six aggregations ship today — segment, customer, product, channel, region, period. Each is a
+            <code>groupby</code> over the same table with <b>zero additional arithmetic</b>. The moment a
+            waterfall is computed twice, the two copies drift, and the drift surfaces as a number a client
+            disputes in a meeting.
+          </p>
+          <p>
+            It is also the only design in which reconciliation is a <b>test rather than a hope</b>: every
+            aggregation must sum back to the grand total, step by step, on every run. This run:
+            <b>54 of 54 checks pass, largest disagreement 3.7 × 10⁻⁹.</b> That check would be meaningless
+            against an independently computed aggregate — it would only be comparing two guesses.
+          </p>
+        </div>
+      </details>
+
+      <details>
+        <summary>What does the fine grain actually buy you? Show me.</summary>
+        <div class="a">
+          <p>
+            This order. At transaction grain <span class="m">TRX-00011</span> is a single healthy number:
+            <b>14.6% pocket margin</b>. At line grain the same order is <b>−0.5%, 34.1% and 30.7%</b> —
+            the margin is carried entirely by two lines while the largest line by value, AC Drives A100,
+            sits fractionally <b>below cost</b>. That line is invisible one level up, not because it is
+            hidden but because it has already been averaged away.
+          </p>
+          <p>
+            It generalises. Across the <b>336 multi-line certified deals</b>, the median gap between the
+            best and worst line inside a single deal is <b>13.9 margin points</b>, and the top decile
+            exceeds 24. A per-deal margin number is an average over that spread every time.
+          </p>
+          <p>
+            <b>State the caveat before you are asked:</b> under the restated waterfall only 3 lines book-wide
+            are below cost, 2 of them inside otherwise profitable deals. The dispersion finding holds under
+            both readings; the below-cost count does not. Quote the dispersion.
+          </p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Mixing measures of different grains in one fact table is a modelling error.</summary>
+        <div class="a">
+          <p>
+            Correct as a general rule, and the objection to take most seriously. The textbook alternative is
+            <b>two fact tables</b> — <code>fact_line</code> for the line-observed measures,
+            <code>fact_transaction_discount</code> at its own natural grain — combined at query time by
+            drill-across on the conformed transaction key.
+          </p>
+          <p>
+            One table was chosen because <b>the deliverable is the nine-step waterfall per line</b>.
+            Splitting the storage does not remove the allocation; it moves it into every consumer, so
+            Track B’s narrative layer, the notebooks and the dashboard each re-implement it — which
+            reintroduces exactly the drift the single table exists to prevent.
+          </p>
+          <p>
+            The concession worth offering: <b>the split remains available and does not disturb the grain
+            decision.</b> The atomic line table is what would feed both halves anyway, so this is a
+            storage-layout question deferred, not a design foreclosed.
+          </p>
+        </div>
+      </details>
+
+      <details>
+        <summary>What happens to rows with missing data?</summary>
+        <div class="a">
+          <p>
+            <b>Missing is never zero.</b> A step sums to <span class="m">UNAVAILABLE</span> if any
+            contributing row lacks it, and certification cascades from line to transaction — a transaction
+            is certified only when every one of its lines is complete, so a half-known deal is excluded
+            whole rather than reported half.
+          </p>
+          <p>
+            170 of 700 transactions fall out, and each is named: <b>116 lines missing <code>unit_cost</code>,
+            60 missing <code>list_price</code>, 12 with a discount of unknown amount, and 210 lines dragged
+            out by an incomplete sibling line.</b> Coverage — 75.7% — is reported beside every published
+            number, with the denominator taken from the full population rather than the certified subset.
+            Take it from the subset and every group reports 100% coverage by construction, which is how a
+            dashboard ends up lying without anyone lying.
+          </p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- ============ PRODUCTION ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>Would you ship this?</h2>
+      <p class="prose">
+        Separate the two questions, because they have different answers. <strong>The grain decision is the
+        durable part and should not change.</strong> The implementation around it is a single-machine,
+        full-recompute demo, and most of it would be replaced. Three rows below are not migration items but
+        correctness gaps that exist today.
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table class="prod">
+        <thead>
+          <tr><th>Concern</th><th>Today</th><th>In production</th><th class="verdict">Verdict</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Grain</td>
+            <td>Atomic — one row per transaction line.</td>
+            <td>Unchanged. Atomic grain is what lets a question nobody anticipated still be answerable. It is the cheapest decision to get right early and the most expensive to reverse.</td>
+            <td><span class="verdict-tag keep">keep</span></td>
+          </tr>
+          <tr class="flagged">
+            <td>Step definition</td>
+            <td><code>negotiated_off_list</code> and <code>on_invoice_discount</code> are the same money, deducted twice.</td>
+            <td>Resolve before anything is published. Confirm with the data owner what <code>unit_price</code> on a line means; if net of on-invoice discount, drop the negotiated step and set <code>invoice_price = gross_value</code>. Add a run-time assertion that the two are not equal, so the next dataset cannot reintroduce it silently.</td>
+            <td><span class="verdict-tag gap">fix</span></td>
+          </tr>
+          <tr class="flagged">
+            <td>Point-in-time correctness</td>
+            <td><code>list_price</code> and <code>unit_cost</code> are read as the product’s <em>current</em> values and joined onto historic lines.</td>
+            <td>Re-running March’s waterfall next quarter prices it with next quarter’s list, so history changes quietly underneath a published number. Fix by freezing <code>list_price</code> and <code>unit_cost</code> onto the fact at transaction time, or by Type-2 effective-dating on the product dimension with an as-of join. The first is cheaper and enough for now.</td>
+            <td><span class="verdict-tag gap">fix</span></td>
+          </tr>
+          <tr class="flagged">
+            <td>Currency</td>
+            <td>Five currencies, no FX rate; cross-currency groups abstain.</td>
+            <td>Blocked on a business answer, not an engineering one. Either amounts are already normalised and the abstention relaxes, or the graph needs a dated FX table — in which case rate-as-of-transaction-date is the same point-in-time problem as the row above, and should be solved the same way.</td>
+            <td><span class="verdict-tag gap">ask</span></td>
+          </tr>
+          <tr>
+            <td>Compute</td>
+            <td>pandas, in-process, whole snapshot in memory. 1,408 lines.</td>
+            <td>The arithmetic is joins, column arithmetic and one groupby-transform — it translates to SQL almost line for line. Push the fact build into the warehouse (dbt model) or DuckDB/Polars past roughly 10⁶–10⁷ lines. Nothing about the model changes.</td>
+            <td><span class="verdict-tag swap">replace</span></td>
+          </tr>
+          <tr>
+            <td>Refresh</td>
+            <td>Every run recomputes the entire book.</td>
+            <td>Partition by <code>period</code> and materialise incrementally. The subtlety: an off-invoice rebate edge can land months after its transaction, so late-arriving discounts must trigger a recompute of the affected partition — otherwise incremental silently freezes stale leakage.</td>
+            <td><span class="verdict-tag swap">replace</span></td>
+          </tr>
+          <tr>
+            <td>Serving</td>
+            <td>One CSV per aggregation, rewritten each run.</td>
+            <td>Pre-materialised aggregate tables for dashboard latency — which contradicts none of this. They become <em>caches over</em> the atomic table rather than parallel sources of truth, and the reconciliation check is precisely what proves a cache is still honest.</td>
+            <td><span class="verdict-tag swap">replace</span></td>
+          </tr>
+          <tr>
+            <td>Table width</td>
+            <td>45 columns, dimensions denormalised onto every line.</td>
+            <td>Fine at snapshot scale and genuinely convenient. At volume, either narrow the fact to keys plus measures and join dimensions at query time, or keep it wide as a deliberate choice on columnar storage, where repeated low-cardinality strings compress to almost nothing.</td>
+            <td><span class="verdict-tag swap">either</span></td>
+          </tr>
+          <tr>
+            <td>Allocation</td>
+            <td>Pro-rata by <code>line_total</code>, one constant.</td>
+            <td>Unchanged until the graph exposes a line-level <code>DISCOUNTED_BY</code> edge. If it does, one constant changes and every downstream number follows — which is the whole return on having isolated it.</td>
+            <td><span class="verdict-tag keep">keep</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ THE SCRIPT ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>If you get sixty seconds</h2>
+      <p class="prose">
+        The version to say out loud. Lead with the defect — bringing your own bug to a review is the
+        strongest position in the room, and it makes the grain argument arrive on its own.
+      </p>
+    </div>
+
+    <div class="script">
+      <p class="q">“Talk me through the engine.”</p>
+      <p>
+        “Before the numbers — I found a step that’s counted twice. The line price is already net of the
+        on-invoice discount, so subtracting the discount edges again double-deducts it. It matches exactly
+        on 515 of 530 certified transactions, and the snapshot’s own <span class="m">net_amount</span> field
+        confirms the intended waterfall. It moves book margin from 18% to 30%. I want to confirm what
+        <span class="m">unit_price</span> means before I publish either number.”
+      </p>
+      <p class="q">“And why is the fact table at line grain?”</p>
+      <p>
+        “Because deal-level margin is an average that hides its own spread. Order TRX-00011 reads 14.6%;
+        inside it the three lines are −0.5%, 34% and 31%, and the biggest line is below cost. Across 336
+        multi-line deals the median spread between best and worst line is about 14 margin points.”
+      </p>
+      <p>
+        “So it’s computed once, at line grain, and all six aggregations are groupbys over that one table —
+        no second calculation to drift. Every aggregation is checked back against the grand total on every
+        run; 54 of 54 pass.”
+      </p>
+      <p>
+        “The one assumption is that transaction-level discounts are allocated to lines pro-rata by line
+        value. It’s exact at transaction grain and above, it’s an assumption only at product grain, and
+        it’s one named constant to change if the graph ever gives us a line-level discount edge.”
+      </p>
+      <p>
+        “What I’d fix before production is point-in-time: list price and unit cost are joined as current
+        values, so re-running an old period silently reprices it.”
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <span>engine v0.2.0</span>
+    <span>contract v0.2.0-draft</span>
+    <span>ALLOCATION_METHOD = pro_rata_by_line_total</span>
+    <span>src/pricing/engine/waterfall.py · aggregation.py · pipeline.py</span>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------- data
+     Every figure below is the actual snapshot content for TRX-00011.   */
+
+  var TXN = {
+    transaction_id: "TRX-00011", date: "2026-03-31", customer_id: "CUS-029",
+    channel_id: "CH-DIR", payment_terms: "NET45",
+    gross_amount: 105013.59, net_amount: 96006.75
+  };
+
+  var LINES = [
+    { product_id: "PRD-001", quantity: 79, unit_price:  734.49, line_total: 58024.71 },
+    { product_id: "PRD-003", quantity: 37, unit_price: 1014.85, line_total: 37549.45 },
+    { product_id: "PRD-012", quantity: 41, unit_price:  230.23, line_total:  9439.43 }
+  ];
+
+  var PRODUCTS = {
+    "PRD-001": { product_name: "AC Drives A100",    category: "Drives",   sub_category: "AC Drives",    list_price:  926.17, unit_cost: 675.18, product_family: "FAM-DRI" },
+    "PRD-003": { product_name: "PLC C102",          category: "Controls", sub_category: "PLC",          list_price: 1263.41, unit_cost: 611.64, product_family: "FAM-CON" },
+    "PRD-012": { product_name: "Servo Drives L111", category: "Drives",   sub_category: "Servo Drives", list_price:  276.84, unit_cost: 145.84, product_family: "FAM-DRI" }
+  };
+
+  var CUSTOMER = { customer_name: "Orbis Systems 29", segment: "Enterprise", region_id: "REG-FR", tier: "Platinum", industry: "Logistics", size: "Large" };
+  var REGION   = { region_name: "France", currency: "EUR", market_type: "Core", country: "FR" };
+  var CHANNEL  = { channel_type: "Direct", cost_to_serve: 480.0, commission_rate: 0.0 };
+
+  var TDISC = [
+    { discount_id: "DSC-ON-CTR",  type: "on-invoice",  amount:  9855.03 },
+    { discount_id: "DSC-ON-VOL",  type: "on-invoice",  amount: 16395.42 },
+    { discount_id: "DSC-OFF-COP", type: "off-invoice", amount:  1062.72 },
+    { discount_id: "DSC-OFF-FRT", type: "off-invoice", amount:  4965.45 },
+    { discount_id: "DSC-OFF-REB", type: "off-invoice", amount:  2978.67 }
+  ];
+
+  var ON_TOTAL  = 26250.45;  /* DSC-ON-CTR + DSC-ON-VOL */
+  var OFF_TOTAL =  9006.84;  /* the three off-invoice edges */
+
+  /* Real output of the full run, both readings of the waterfall. */
+  var BOOK = {
+    built: { list_value: 31108764.18, negotiated_off_list: 3688235.18, gross_value: 27420529.00,
+             on_invoice_discount: 3669609.59, invoice_price: 23750919.41, off_invoice_leakage: 1117996.07,
+             pocket_price: 22632923.34, cogs: 18513092.48, pocket_margin: 4119830.86 },
+    restated: { list_value: 31108764.18, negotiated_off_list: 0, gross_value: 27420529.00,
+             on_invoice_discount: 3669609.59, invoice_price: 27420529.00, off_invoice_leakage: 1117996.07,
+             pocket_price: 26302532.93, cogs: 18513092.48, pocket_margin: 7789440.45 }
+  };
+  var CUST = {
+    built: { list_value: 2332395.03, negotiated_off_list: 366568.05, gross_value: 1965826.98,
+             on_invoice_discount: 366568.05, invoice_price: 1599258.93, off_invoice_leakage: 139772.95,
+             pocket_price: 1459485.98, cogs: 1396370.45, pocket_margin: 63115.53 },
+    restated: { list_value: 2332395.03, negotiated_off_list: 0, gross_value: 1965826.98,
+             on_invoice_discount: 366568.05, invoice_price: 1965826.98, off_invoice_leakage: 139772.95,
+             pocket_price: 1826054.03, cogs: 1396370.45, pocket_margin: 429683.58 }
+  };
+
+  /* ------------------------------------------------------------ helpers */
+
+  var nf2 = new Intl.NumberFormat("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  var nf0 = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 0 });
+  function money(x) { return nf2.format(x); }
+  function pct(x) { return (x >= 0 ? "" : "") + x.toFixed(1) + "%"; }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c];
+    });
+  }
+
+  var METHODS = {
+    pro_rata_by_line_total: { label: "pro-rata by line total", ship: true,
+      share: function (l, all) {
+        var d = all.reduce(function (a, b) { return a + b.line_total; }, 0);
+        return d ? l.line_total / d : 1 / all.length;
+      } },
+    by_quantity: { label: "by quantity", ship: false,
+      share: function (l, all) {
+        var d = all.reduce(function (a, b) { return a + b.quantity; }, 0);
+        return d ? l.quantity / d : 1 / all.length;
+      } },
+    equal_split: { label: "equal split", ship: false,
+      share: function (l, all) { return 1 / all.length; } }
+  };
+
+  var state = { stage: 0, method: "pro_rata_by_line_total", reading: "built", grain: "line" };
+
+  /* Build the line-grain facts exactly as build_facts() does. */
+  function facts() {
+    var m = METHODS[state.method];
+    var restated = state.reading === "restated";
+    return LINES.map(function (l) {
+      var p = PRODUCTS[l.product_id];
+      var share = m.share(l, LINES);
+      var f = {
+        transaction_id: TXN.transaction_id,
+        product_id: l.product_id, quantity: l.quantity,
+        unit_price: l.unit_price, line_total: l.line_total,
+        product_name: p.product_name, category: p.category, sub_category: p.sub_category,
+        list_price: p.list_price, unit_cost: p.unit_cost, product_family: p.product_family,
+        date: TXN.date, customer_id: TXN.customer_id, channel_id: TXN.channel_id,
+        payment_terms: TXN.payment_terms, gross_amount: TXN.gross_amount, net_amount: TXN.net_amount,
+        customer_name: CUSTOMER.customer_name, segment: CUSTOMER.segment, region_id: CUSTOMER.region_id,
+        tier: CUSTOMER.tier, industry: CUSTOMER.industry, size: CUSTOMER.size,
+        region_name: REGION.region_name, currency: REGION.currency,
+        market_type: REGION.market_type, country: REGION.country,
+        channel_type: CHANNEL.channel_type, cost_to_serve: CHANNEL.cost_to_serve,
+        commission_rate: CHANNEL.commission_rate,
+        _share: share
+      };
+      f.list_value  = l.quantity * p.list_price;
+      f.cogs        = l.quantity * p.unit_cost;
+      f.gross_value = l.line_total;
+
+      f.on_invoice_discount = ON_TOTAL * share;
+      f.off_invoice_leakage = OFF_TOTAL * share;
+      f.n_unknown_on_invoice_edges = 0;
+      f.n_unknown_off_invoice_edges = 0;
+
+      f.negotiated_off_list = restated ? 0 : f.list_value - f.gross_value;
+      f.invoice_price       = restated ? f.gross_value : f.gross_value - f.on_invoice_discount;
+      f.pocket_price        = f.invoice_price - f.off_invoice_leakage;
+      f.pocket_margin       = f.pocket_price - f.cogs;
+
+      f.line_certified = true;
+      f.certified = true;
+      f.uncertified_reason = "";
+      f.period = "2026-03";
+      return f;
+    });
+  }
+
+  /* ------------------------------------------------- column schedule */
+
+  var MONEY_COLS = {
+    unit_price: 1, line_total: 1, list_price: 1, unit_cost: 1, gross_amount: 1, net_amount: 1,
+    list_value: 1, cogs: 1, gross_value: 1, on_invoice_discount: 1, off_invoice_leakage: 1,
+    negotiated_off_list: 1, invoice_price: 1, pocket_price: 1, pocket_margin: 1, cost_to_serve: 1
+  };
+
+  var COLS = [
+    { k: "transaction_id", g: "key",     at: 2 },
+    { k: "product_id",     g: "line",    at: 2 },
+    { k: "quantity",       g: "line",    at: 2 },
+    { k: "unit_price",     g: "line",    at: 2 },
+    { k: "line_total",     g: "line",    at: 2 },
+    { k: "product_name",   g: "product", at: 2 },
+    { k: "category",       g: "product", at: 2 },
+    { k: "sub_category",   g: "product", at: 2 },
+    { k: "list_price",     g: "product", at: 2 },
+    { k: "unit_cost",      g: "product", at: 2 },
+    { k: "product_family", g: "product", at: 2 },
+    { k: "date",           g: "txn",     at: 2 },
+    { k: "customer_id",    g: "txn",     at: 2 },
+    { k: "channel_id",     g: "txn",     at: 2 },
+    { k: "payment_terms",  g: "txn",     at: 2 },
+    { k: "gross_amount",   g: "txn",     at: 2 },
+    { k: "net_amount",     g: "txn",     at: 2 },
+    { k: "customer_name",  g: "customer",at: 2 },
+    { k: "segment",        g: "customer",at: 2 },
+    { k: "region_id",      g: "customer",at: 2 },
+    { k: "tier",           g: "customer",at: 2 },
+    { k: "industry",       g: "customer",at: 2 },
+    { k: "size",           g: "customer",at: 2 },
+    { k: "region_name",    g: "region",  at: 2 },
+    { k: "currency",       g: "region",  at: 2 },
+    { k: "market_type",    g: "region",  at: 2 },
+    { k: "country",        g: "region",  at: 2 },
+    { k: "channel_type",   g: "channel", at: 2 },
+    { k: "cost_to_serve",  g: "channel", at: 2 },
+    { k: "commission_rate",g: "channel", at: 2 },
+
+    { k: "list_value",     g: "observed", at: 3 },
+    { k: "cogs",           g: "observed", at: 3 },
+    { k: "gross_value",    g: "observed", at: 3 },
+
+    { k: "_share",              g: "allocated", at: 4, assumed: true, working: true },
+    { k: "on_invoice_discount", g: "allocated", at: 4, assumed: true },
+    { k: "off_invoice_leakage", g: "allocated", at: 4, assumed: true },
+    { k: "n_unknown_on_invoice_edges",  g: "allocated", at: 4, assumed: true },
+    { k: "n_unknown_off_invoice_edges", g: "allocated", at: 4, assumed: true },
+
+    { k: "negotiated_off_list", g: "waterfall", at: 5, doubt: true },
+    { k: "invoice_price",       g: "waterfall", at: 5, doubt: true },
+    { k: "pocket_price",        g: "waterfall", at: 5 },
+    { k: "pocket_margin",       g: "waterfall", at: 5 },
+
+    { k: "line_certified",      g: "certify", at: 6 },
+    { k: "certified",           g: "certify", at: 6 },
+    { k: "uncertified_reason",  g: "certify", at: 6 },
+    { k: "period",              g: "certify", at: 6 }
+  ];
+
+  var GROUP_LABEL = {
+    key: "key", line: "from lines", product: "product dim", txn: "transaction dim",
+    customer: "customer dim", region: "region dim", channel: "channel dim",
+    observed: "derived — observed", allocated: "derived — allocated",
+    waterfall: "waterfall steps", certify: "certification"
+  };
+
+  function factTable(stage) {
+    var rows = facts();
+    var cols = COLS.filter(function (c) {
+      if (c.at > stage) return false;
+      if (c.working && stage > c.at) return false;   /* _share is working, not stored */
+      return true;
+    });
+
+    var groups = [], last = null;
+    cols.forEach(function (c) {
+      if (c.g !== last) { groups.push({ g: c.g, n: 1, at: c.at, assumed: c.assumed }); last = c.g; }
+      else { groups[groups.length - 1].n += 1; }
+    });
+
+    function cls(c) {
+      if (c.at !== stage) return "";
+      if (c.assumed) return "is-assumed";
+      if (c.doubt && state.reading === "built") return "is-doubt";
+      return "is-new";
+    }
+
+    var h = '<div class="scroller"><table class="data"><thead><tr class="groups">';
+    groups.forEach(function (gr) {
+      var k = gr.at === stage ? (gr.assumed ? "is-assumed" : "is-new") : "";
+      h += '<th class="' + k + '" colspan="' + gr.n + '">' + esc(GROUP_LABEL[gr.g]) + "</th>";
+    });
+    h += "</tr><tr>";
+    cols.forEach(function (c) {
+      var k = [cls(c)];
+      if (!MONEY_COLS[c.k] && typeof rows[0][c.k] !== "number") k.push("t");
+      h += '<th class="' + k.join(" ") + '">' + esc(c.k) + "</th>";
+    });
+    h += "</tr></thead><tbody>";
+
+    rows.forEach(function (r) {
+      h += "<tr>";
+      cols.forEach(function (c) {
+        var v = r[c.k], k = [cls(c)], txt;
+        if (typeof v === "boolean") { txt = v ? "True" : "False"; k.push("t"); }
+        else if (typeof v === "number") {
+          txt = c.k === "_share" ? v.toFixed(6) : MONEY_COLS[c.k] ? money(v) : nf0.format(v);
+          if (v < 0) k.push("neg");
+        } else if (v === "") { txt = "—"; k.push("t", "na"); }
+        else { txt = String(v); k.push("t"); }
+        h += '<td class="' + k.join(" ") + '">' + esc(txt) + "</td>";
+      });
+      h += "</tr>";
+    });
+    h += "</tbody></table></div>";
+    h += '<div class="keyline" style="margin-top:.5rem">'
+       + '<i><u class="new"></u>added at this stage</i>'
+       + '<i><u class="asm"></u>allocated — an assumption, not an observation</i>'
+       + '<i style="color:var(--clay)">red = below zero</i></div>';
+    return h;
+  }
+
+  function readingPicker() {
+    var h = '<div class="controls" style="margin-bottom:.7rem">'
+          + '<span class="ctl-label">Waterfall reading</span>'
+          + '<span class="segmented warn" id="readingPicker">'
+          + '<button type="button" data-reading="built" aria-pressed="'
+          + (state.reading === "built" ? "true" : "false") + '">as built — 9 steps</button>'
+          + '<button type="button" data-reading="restated" aria-pressed="'
+          + (state.reading === "restated" ? "true" : "false") + '">restated — no double count</button>'
+          + "</span></div>";
+    return h;
+  }
+
+  /* ------------------------------------------------------------ stages */
+
+  var STAGES = [
+    {
+      kicker: "Stage 0 · source",
+      title: "The graph, as it arrives",
+      shape: ["8 node &amp; edge tables", "3 different grains", "nothing is a waterfall yet"],
+      note: "Nothing here is a price waterfall. The numbers that make one live in three different places, "
+          + "at three different grains — and that split is the entire reason a grain has to be declared "
+          + "before a single column is computed.",
+      fig: function () {
+        var h = '<div class="scroller"><table class="data">';
+        h += '<thead><tr class="groups"><th colspan="5">transaction_lines · grain = line</th></tr><tr>'
+           + '<th class="t">transaction_id</th><th class="t">product_id</th><th>quantity</th><th>unit_price</th><th>line_total</th></tr></thead><tbody>';
+        LINES.forEach(function (l) {
+          h += '<tr><td class="t">TRX-00011</td><td class="t">' + l.product_id + "</td><td>"
+             + l.quantity + "</td><td>" + money(l.unit_price) + "</td><td>" + money(l.line_total) + "</td></tr>";
+        });
+        h += "</tbody></table></div>";
+
+        h += '<div class="scroller" style="margin-top:.6rem"><table class="data">';
+        h += '<thead><tr class="groups"><th colspan="4">transaction_discounts · grain = transaction</th></tr><tr>'
+           + '<th class="t">transaction_id</th><th class="t">discount_id</th><th class="t">type</th><th>amount_applied</th></tr></thead><tbody>';
+        TDISC.forEach(function (d) {
+          h += '<tr><td class="t">TRX-00011</td><td class="t">' + d.discount_id + '</td><td class="t">'
+             + d.type + "</td><td>" + money(d.amount) + "</td></tr>";
+        });
+        h += "</tbody></table></div>";
+
+        h += '<div class="scroller" style="margin-top:.6rem"><table class="data">';
+        h += '<thead><tr class="groups"><th colspan="4">products · grain = product (current values, no effective date)</th></tr><tr>'
+           + '<th class="t">product_id</th><th class="t">name</th><th>list_price</th><th>unit_cost</th></tr></thead><tbody>';
+        Object.keys(PRODUCTS).forEach(function (k) {
+          var p = PRODUCTS[k];
+          h += '<tr><td class="t">' + k + '</td><td class="t">' + p.product_name + "</td><td>"
+             + money(p.list_price) + "</td><td>" + money(p.unit_cost) + "</td></tr>";
+        });
+        h += "</tbody></table></div>";
+
+        h += '<p class="note" style="margin-top:.7rem"><b>Two things worth noticing before any arithmetic.</b> '
+           + "The product table carries one list price with no effective date — join it onto a line from "
+           + "March and you have priced history with today’s list. And the transaction header already "
+           + "carries <span class=\"m\">gross_amount " + money(TXN.gross_amount) + "</span> and "
+           + "<span class=\"m\">net_amount " + money(TXN.net_amount) + "</span>, whose difference is "
+           + money(TXN.gross_amount - TXN.net_amount) + " — exactly the three off-invoice edges. The "
+           + "snapshot is describing its own waterfall, and the engine ignores it.</p>";
+        return h;
+      }
+    },
+
+    {
+      kicker: "Stage 1 · the decision",
+      title: "Declare the grain before anything else",
+      shape: ["9 measures", "3 observation grains", "1 storage grain: line"],
+      note: "Grain is declared first, and everything else follows from it. The rule applied here is: "
+          + "store at the finest grain at which any measure is observed. Most measures are already "
+          + "line-level; two are not, and reaching line grain for those costs an assumption — stage 4.",
+      fig: function () {
+        var rows = [
+          ["quantity, line_total", "line", "as given"],
+          ["list_price, unit_cost", "product", "× quantity on the line"],
+          ["list_value, cogs, gross_value", "line", "pure line arithmetic"],
+          ["on_invoice_discount", "transaction", "allocated pro-rata"],
+          ["off_invoice_leakage", "transaction", "allocated pro-rata"]
+        ];
+        var h = '<div class="scroller"><table class="matrix"><thead><tr>'
+              + "<th>Measure</th><th>Observed at</th><th>Stored at</th><th>How it gets there</th>"
+              + "</tr></thead><tbody>";
+        rows.forEach(function (r) {
+          var tag = r[1] === "line" ? "line" : r[1] === "transaction" ? "txn" : "prod";
+          h += '<tr><td class="mono">' + esc(r[0]) + '</td><td><span class="tag ' + tag + '">'
+             + r[1] + '</span></td><td><span class="tag line">line</span></td><td>' + esc(r[2]) + "</td></tr>";
+        });
+        h += "</tbody></table></div>";
+        h += '<p class="note" style="margin-top:.7rem"><b>The trade, stated plainly.</b> '
+           + "Storing at line grain means two of the deductions carry an allocation assumption at line and "
+           + "product level. Storing at transaction grain would remove that assumption — and remove the "
+           + "within-deal margin spread with it. The assumption is declared, isolated in one constant, and "
+           + "exact from transaction grain upward, so it is the cheaper of the two costs.</p>";
+        return h;
+      }
+    },
+
+    {
+      kicker: "Stage 2 · widen",
+      title: "Join every dimension — and aggregate nothing",
+      shape: ["3 rows in", "3 rows out", "5 → 30 columns"],
+      note: "Every dimension a question might slice by is joined on now, once, while the rows are still at "
+          + "their finest. The row count does not move — this stage only ever gets wider. Scroll the table "
+          + "sideways: that width is what makes six different aggregations free later on.",
+      fig: function () { return factTable(2); }
+    },
+
+    {
+      kicker: "Stage 3 · derive",
+      title: "Compute what the line actually observes",
+      shape: ["+3 columns", "no assumptions yet", "30 → 33 columns"],
+      note: "List value, COGS and gross value need nothing but this row. Quantity × list price, quantity × "
+          + "unit cost, and the line total as invoiced. Everything so far is observation.",
+      fig: function () {
+        var f = facts();
+        var h = factTable(3);
+        h += '<p class="note" style="margin-top:.7rem"><b>AC Drives A100</b> · 79 × '
+           + money(PRODUCTS["PRD-001"].list_price) + " = " + money(f[0].list_value)
+           + " at list, against " + money(f[0].gross_value) + " on the invoice — and "
+           + money(f[0].cogs) + " of cost sitting underneath it. That line is already only "
+           + pct(100 * (f[0].gross_value - f[0].cogs) / f[0].gross_value)
+           + " above cost before a single discount is applied.</p>";
+        return h;
+      }
+    },
+
+    {
+      kicker: "Stage 4 · allocate",
+      title: "Split the transaction’s discounts across its lines",
+      shape: ["+4 stored columns", "the one assumption", "33 → 37 columns"],
+      note: "Five discount edges hang off the transaction, not the line: 26,250.45 on-invoice and 9,006.84 "
+          + "off-invoice. Reaching line grain means splitting them. Change the method below and watch what "
+          + "moves — and, more importantly, what does not.",
+      fig: function () {
+        var f = facts();
+        var h = '<div class="controls" style="margin-bottom:.7rem">'
+              + '<span class="ctl-label">Allocation method</span><span class="segmented" id="methodPicker">';
+        Object.keys(METHODS).forEach(function (k) {
+          h += '<button type="button" data-method="' + k + '" aria-pressed="'
+             + (state.method === k ? "true" : "false") + '">' + esc(METHODS[k].label)
+             + (METHODS[k].ship ? " ✓" : "") + "</button>";
+        });
+        h += "</span></div>";
+
+        var txnPocket = f.reduce(function (a, r) { return a + r.pocket_price; }, 0);
+        var txnMargin = f.reduce(function (a, r) { return a + r.pocket_margin; }, 0);
+
+        h += '<div class="invariant" style="margin-bottom:.8rem">';
+        h += '<div class="card locked"><span class="k">Transaction pocket price</span><span class="v">'
+           + money(txnPocket) + '</span><span class="s">identical under every method</span></div>';
+        h += '<div class="card locked"><span class="k">Transaction pocket margin</span><span class="v">'
+           + money(txnMargin) + '</span><span class="s">identical under every method</span></div>';
+        f.forEach(function (r) {
+          h += '<div class="card moves"><span class="k">' + esc(r.product_name)
+             + ' line margin</span><span class="v">' + money(r.pocket_margin)
+             + '</span><span class="s">moves with the method</span></div>';
+        });
+        h += "</div>";
+
+        h += factTable(4);
+        h += '<p class="note" style="margin-top:.7rem"><b>This is the whole argument, in the first two cards.</b> '
+           + "The allocation is lossless — the parts sum back to the transaction to the cent under any "
+           + "method, which is why every aggregate at transaction grain and above is untouched by the "
+           + "choice, and it is tested in <span class=\"m\">test_line_rollup_equals_transaction</span>. "
+           + "Below transaction grain the choice genuinely matters, which is exactly why it is one named "
+           + "constant rather than an expression buried in a join. "
+           + "(<span class=\"m\">_share</span> is shown here as working; it is not stored.)</p>";
+        return h;
+      }
+    },
+
+    {
+      kicker: "Stage 5 · close",
+      title: "Subtract down to pocket margin",
+      shape: ["+4 columns", "37 → 41 columns", "one step in dispute"],
+      note: "Four subtractions, in order — and this is where the double-count lives. Switch the reading "
+          + "below. “As built” takes the list-to-invoice gap as its own step and then deducts the "
+          + "on-invoice edges again; “restated” treats the line total as already net of them.",
+      fig: function () {
+        var f = facts();
+        var built = state.reading === "built";
+        var h = readingPicker();
+
+        var order = built
+          ? [["list_value", "List value", 0], ["negotiated_off_list", "− negotiated off-list", 1],
+             ["gross_value", "= Gross value", 0], ["on_invoice_discount", "− on-invoice discount", 1],
+             ["invoice_price", "= Invoice price", 0], ["off_invoice_leakage", "− off-invoice leakage", 1],
+             ["pocket_price", "= Pocket price", 0], ["cogs", "− COGS", 1],
+             ["pocket_margin", "= Pocket margin", 0]]
+          : [["list_value", "List value", 0], ["on_invoice_discount", "− on-invoice discount", 1],
+             ["invoice_price", "= Invoice price (= line total)", 0],
+             ["off_invoice_leakage", "− off-invoice leakage", 1],
+             ["pocket_price", "= Pocket price", 0], ["cogs", "− COGS", 1],
+             ["pocket_margin", "= Pocket margin", 0]];
+
+        h += '<div class="scroller"><table class="data"><thead><tr class="groups"><th>step</th>';
+        f.forEach(function (r) { h += "<th>" + esc(r.product_name) + "</th>"; });
+        h += '<th class="is-new">transaction</th></tr></thead><tbody>';
+        order.forEach(function (o) {
+          var t = 0;
+          h += '<tr><td class="t"' + (o[2] ? ' style="color:var(--ink-muted)"' : "") + ">" + esc(o[1]) + "</td>";
+          f.forEach(function (r) {
+            var v = r[o[0]]; t += v;
+            h += '<td class="' + (v < 0 ? "neg" : "") + '">' + money(v) + "</td>";
+          });
+          h += '<td class="is-new ' + (t < 0 ? "neg" : "") + '">' + money(t) + "</td></tr>";
+        });
+        var tp = f.reduce(function (a, r) { return a + r.pocket_price; }, 0);
+        var tm = f.reduce(function (a, r) { return a + r.pocket_margin; }, 0);
+        h += '<tr><td class="t">Pocket margin %</td>';
+        f.forEach(function (r) {
+          var v = 100 * r.pocket_margin / r.pocket_price;
+          h += '<td class="' + (v < 0 ? "neg" : "") + '">' + pct(v) + "</td>";
+        });
+        h += '<td class="is-new ' + (tm < 0 ? "neg" : "") + '">' + pct(100 * tm / tp) + "</td></tr>";
+        h += "</tbody></table></div>";
+
+        if (built) {
+          h += '<div class="invariant" style="margin-top:.7rem">'
+             + '<div class="card alarm"><span class="k">negotiated off-list</span><span class="v">'
+             + money(f.reduce(function (a, r) { return a + r.negotiated_off_list; }, 0))
+             + '</span><span class="s">list − gross</span></div>'
+             + '<div class="card alarm"><span class="k">on-invoice discount</span><span class="v">'
+             + money(ON_TOTAL) + '</span><span class="s">sum of the two on-invoice edges</span></div>'
+             + '<div class="card alarm"><span class="k">difference</span><span class="v">0.00</span>'
+             + '<span class="s">the same money, deducted twice — true for 515 of 530 certified transactions</span></div>'
+             + "</div>";
+          h += '<p class="note" style="margin-top:.7rem"><b>Read the two cards on the left.</b> '
+             + "They are the identical figure. The engine subtracts it once as a negotiated gap and once "
+             + "as a discount edge, so this deal reports "
+             + money(tm) + " — a loss — when the snapshot’s own <span class=\"m\">net_amount</span> "
+             + "says the pocket price is " + money(TXN.net_amount) + ". Switch to restated.</p>";
+        } else {
+          h += '<p class="note" style="margin-top:.7rem"><b>Now read the last row across.</b> '
+             + "The transaction earns " + money(tm) + " on a pocket price of " + money(tp)
+             + " — " + pct(100 * tm / tp) + ", healthy, and it reconciles with the snapshot’s own "
+             + "<span class=\"m\">net_amount</span> of " + money(TXN.net_amount) + ". "
+             + "But the three lines inside it are " + pct(100 * f[0].pocket_margin / f[0].pocket_price)
+             + ", " + pct(100 * f[1].pocket_margin / f[1].pocket_price) + " and "
+             + pct(100 * f[2].pocket_margin / f[2].pocket_price)
+             + ". The largest line by value is <b>below cost</b>, carried by the two beside it. "
+             + "<b>That is what the grain buys.</b> Across 336 multi-line certified deals the median "
+             + "spread between best and worst line is 13.9 margin points.</p>";
+        }
+        h += factTable(5);
+        return h;
+      }
+    },
+
+    {
+      kicker: "Stage 6 · certify",
+      title: "Say what this row is allowed to claim",
+      shape: ["+4 columns", "41 → 45 columns", "530 of 700 certified"],
+      note: "A line is certified when every input it needed was present. A transaction is certified only "
+          + "when all of its lines are — so a half-known deal is excluded whole rather than reported half. "
+          + "Missing is never read as zero.",
+      fig: function () {
+        var h = factTable(6);
+        h += '<div class="scroller" style="margin-top:.7rem"><table class="matrix"><thead><tr>'
+           + "<th>Why a transaction falls out</th><th>Lines</th><th>What becomes unavailable</th>"
+           + "</tr></thead><tbody>"
+           + '<tr><td>product has no <span class="m">unit_cost</span></td><td class="mono">116</td><td>COGS and pocket margin</td></tr>'
+           + '<tr><td>product has no <span class="m">list_price</span></td><td class="mono">60</td><td>list value and price realisation</td></tr>'
+           + '<tr><td>discount applied with unknown amount</td><td class="mono">12</td><td>leakage understated</td></tr>'
+           + '<tr><td>another line in the same transaction is incomplete</td><td class="mono">210</td><td>the whole transaction</td></tr>'
+           + "</tbody></table></div>";
+        h += '<p class="note" style="margin-top:.7rem"><b>170 of 700 transactions excluded, coverage 75.7%</b> '
+           + "— reported beside every number the engine publishes, with the denominator taken from the full "
+           + "population rather than the certified subset. Take it from the subset and every group reports "
+           + "100% coverage by construction, which is how a dashboard ends up lying without anyone lying.</p>";
+        return h;
+      }
+    },
+
+    {
+      kicker: "Stage 7 · aggregate",
+      title: "Six views, and not one new calculation",
+      shape: ["1 table", "6 groupbys", "0 new arithmetic"],
+      note: "Every aggregation is the same table grouped differently. Switch grain below: the numbers "
+          + "coarsen, the arithmetic never changes, and each level must sum back to the one above it.",
+      fig: function () {
+        var f = facts();
+        var GRAINS = [
+          { k: "line", label: "line · 3 rows" },
+          { k: "txn",  label: "transaction · 1 row" },
+          { k: "cust", label: "customer CUS-029 · 20 certified" },
+          { k: "book", label: "whole book · 530 certified" }
+        ];
+        var h = readingPicker();
+        h += '<div class="controls" style="margin-bottom:.7rem">'
+           + '<span class="ctl-label">Roll up to</span><span class="segmented" id="grainPicker">';
+        GRAINS.forEach(function (g) {
+          h += '<button type="button" data-grain="' + g.k + '" aria-pressed="'
+             + (state.grain === g.k ? "true" : "false") + '">' + esc(g.label) + "</button>";
+        });
+        h += "</span></div>";
+
+        var STEPS = ["list_value", "negotiated_off_list", "gross_value", "on_invoice_discount",
+                     "invoice_price", "off_invoice_leakage", "pocket_price", "cogs", "pocket_margin"];
+        var cols, data;
+        if (state.grain === "line") {
+          cols = f.map(function (r) { return r.product_name; });
+          data = f;
+        } else if (state.grain === "txn") {
+          cols = ["TRX-00011"];
+          var t = {};
+          STEPS.forEach(function (s) { t[s] = f.reduce(function (a, r) { return a + r[s]; }, 0); });
+          data = [t];
+        } else if (state.grain === "cust") {
+          cols = ["Orbis Systems 29"]; data = [CUST[state.reading]];
+        } else {
+          cols = ["all certified"]; data = [BOOK[state.reading]];
+        }
+
+        h += '<div class="scroller"><table class="data"><thead><tr class="groups"><th>step</th>';
+        cols.forEach(function (c) { h += '<th class="is-new">' + esc(c) + "</th>"; });
+        h += "</tr></thead><tbody>";
+        STEPS.forEach(function (s) {
+          h += '<tr><td class="t">' + esc(s) + "</td>";
+          data.forEach(function (d) {
+            var v = d[s];
+            h += '<td class="' + (v < 0 ? "neg" : "") + '">' + money(v) + "</td>";
+          });
+          h += "</tr>";
+        });
+        h += '<tr><td class="t">pocket_margin_pct</td>';
+        data.forEach(function (d) {
+          var v = 100 * d.pocket_margin / d.pocket_price;
+          h += '<td class="' + (v < 0 ? "neg" : "") + '">' + pct(v) + "</td>";
+        });
+        h += "</tr></tbody></table></div>";
+
+        var msg = {
+          line: "The atomic row. Everything above is derived from rows exactly like these three — nothing else is ever computed.",
+          txn:  "The three lines summed. The below-cost line has already vanished into a single deal-level number.",
+          cust: "Real output: 22 transactions, 20 certified, 90.9% coverage, EUR only — so it publishes rather than abstaining.",
+          book: "Real output across 530 certified transactions."
+        }[state.grain];
+
+        h += '<p class="note" style="margin-top:.7rem">' + esc(msg) + "</p>";
+        h += '<div class="invariant" style="margin-top:.5rem">'
+           + '<div class="card locked"><span class="k">Reconciliation</span><span class="v">54 / 54</span>'
+           + '<span class="s">every step of every one of the six aggregations summed back to the grand total</span></div>'
+           + '<div class="card locked"><span class="k">Largest disagreement</span><span class="v">3.7 × 10⁻⁹</span>'
+           + '<span class="s">floating-point noise, checked on every run</span></div>'
+           + "</div>";
+        h += '<p class="note" style="margin-top:.7rem"><b>Why this check is the point.</b> '
+           + "It catches the whole class of join-fanout bugs that are invisible in the numbers themselves — "
+           + "and it only means anything because there is one table. Comparing two independently computed "
+           + "waterfalls would just be comparing two guesses. Note what it does <em>not</em> catch: a step "
+           + "that is defined wrongly reconciles perfectly with itself. Reconciliation proves consistency, "
+           + "never correctness.</p>";
+        return h;
+      }
+    },
+
+    {
+      kicker: "Stage 8 · publish",
+      title: "Emit nothing that cannot name its sources",
+      shape: ["typed contract", "evidence required", "provenance on the envelope"],
+      note: "The result object is validated before anything leaves the engine. A record claiming to be "
+          + "complete with no evidence, or low confidence with no stated reason, is rejected rather than "
+          + "published — which is what makes “the narrative layer explains only numbers the engine "
+          + "computed” an enforceable rule instead of a good intention.",
+      fig: function () {
+        var c = CUST[state.reading];
+        var payload =
+          "{\n" +
+          '  "provenance": {\n' +
+          '    "snapshot_sha256":  "6af98ff70daf16a1…",\n' +
+          '    "engine_version":   "0.2.0",\n' +
+          '    "contract_version": "0.2.0-draft",\n' +
+          '    "allocation_method":"pro_rata_by_line_total",\n' +
+          '    "mlflow_run_id":    "0c6b3c7ca84f429f…"\n' +
+          "  },\n" +
+          '  "record": {\n' +
+          '    "grain":    ["customer"],\n' +
+          '    "key":      "CUS-029",\n' +
+          '    "currency": "EUR",\n' +
+          '    "pocket_margin": { "amount": ' + c.pocket_margin.toFixed(2) + ', "status": "COMPLETE" },\n' +
+          '    "pocket_margin_pct": ' + (100 * c.pocket_margin / c.pocket_price).toFixed(2) + ',\n' +
+          '    "coverage_pct": 90.91,\n' +
+          '    "confidence": { "score": 0.91, "reasons": ["2 of 22 transactions incomplete"] },\n' +
+          '    "evidence": { "transactions": ["TRX-00011", "…"], "n_lines": 46 }\n' +
+          "  }\n" +
+          "}";
+        var h = readingPicker();
+        h += '<div class="scroller"><table class="data"><tbody><tr><td class="t"><pre>'
+           + esc(payload) + "</pre></td></tr></tbody></table></div>";
+        h += '<p class="note" style="margin-top:.7rem"><b>Everything regenerates.</b> '
+           + "Snapshot hash, engine version, contract version, allocation method and MLflow run ID travel "
+           + "with the number. Given a published figure you can find the exact bytes it came from; given "
+           + "the bytes you can reproduce the figure — <span class=\"m\">dvc repro</span> rebuilds every "
+           + "report from versioned inputs. Which is the other reason there is one fact table: there is "
+           + "one thing to reproduce. Switch the reading above and watch the published margin move by "
+           + "a factor of nearly seven — which is why the step definition has to be settled before any "
+           + "of this reaches Track B.</p>";
+        return h;
+      }
+    }
+  ];
+
+  /* ------------------------------------------------------------ render */
+
+  var rail = document.getElementById("rail");
+  var elKicker = document.getElementById("stageKicker");
+  var elTitle = document.getElementById("stageTitle");
+  var elShape = document.getElementById("stageShape");
+  var elNote = document.getElementById("stageNote");
+  var elFig = document.getElementById("stageFig");
+  var prevBtn = document.getElementById("prevBtn");
+  var nextBtn = document.getElementById("nextBtn");
+  var stepHint = document.getElementById("stepHint");
+
+  var RAIL_LABELS = [
+    "The graph as it arrives", "Declare the grain", "Widen, don’t aggregate",
+    "Derive what is observed", "Allocate what is not", "Close the waterfall",
+    "Certify line by line", "Aggregate — six views", "Publish with provenance"
+  ];
+
+  STAGES.forEach(function (s, i) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.innerHTML = '<span class="n">' + i + "</span>" + esc(RAIL_LABELS[i]);
+    b.addEventListener("click", function () { go(i); });
+    rail.appendChild(b);
+  });
+
+  function render() {
+    var s = STAGES[state.stage];
+    elKicker.textContent = s.kicker;
+    elTitle.textContent = s.title;
+    elShape.innerHTML = s.shape.map(function (t, i) {
+      var cls = "";
+      if (state.stage === 4 && i === 1) cls = "warn";
+      else if (state.stage === 5 && i === 2) cls = "bad";
+      else if (i === 2) cls = "hot";
+      return '<b class="' + cls + '">' + t + "</b>";
+    }).join("");
+    elNote.innerHTML = s.note;
+    elFig.innerHTML = s.fig();
+
+    Array.prototype.forEach.call(rail.children, function (b, i) {
+      b.setAttribute("aria-current", i === state.stage ? "true" : "false");
+    });
+    prevBtn.disabled = state.stage === 0;
+    nextBtn.disabled = state.stage === STAGES.length - 1;
+    stepHint.textContent = (state.stage + 1) + " of " + STAGES.length + " · arrow keys to move";
+
+    bind("methodPicker", "method");
+    bind("grainPicker", "grain");
+    bind("readingPicker", "reading");
+  }
+
+  function bind(id, key) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-" + key + "]");
+      if (!b) return;
+      state[key] = b.getAttribute("data-" + key);
+      render();
+    });
+  }
+
+  function go(i) {
+    state.stage = Math.max(0, Math.min(STAGES.length - 1, i));
+    render();
+  }
+
+  prevBtn.addEventListener("click", function () { go(state.stage - 1); });
+  nextBtn.addEventListener("click", function () { go(state.stage + 1); });
+  document.addEventListener("keydown", function (e) {
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    if (e.key === "ArrowRight") { go(state.stage + 1); }
+    else if (e.key === "ArrowLeft") { go(state.stage - 1); }
+  });
+
+  render();
+})();
+</script>

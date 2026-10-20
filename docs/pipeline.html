@@ -1,0 +1,754 @@
+<title>AXIOM Pricing Module — Track A pipeline</title>
+<style>
+  :root {
+    --ground:      #F7F4EE;
+    --surface:     #FFFFFF;
+    --surface-2:   #F0ECE3;
+    --ink:         #1C1F1A;
+    --ink-muted:   #5E645A;
+    --ink-faint:   #8C9287;
+    --rule:        #DDD7C9;
+    --rule-strong: #C4BCA9;
+    --accent:      #0F6E5C;
+    --accent-soft: #DCEBE5;
+    --clay:        #A8412A;
+    --clay-soft:   #F3E2DC;
+    --amber:       #96660D;
+    --amber-soft:  #F5E9CF;
+    --shadow:      0 1px 2px rgba(28,31,26,.06), 0 8px 24px -12px rgba(28,31,26,.18);
+
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+    --sans:  system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --mono:  ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #121614;
+      --surface:     #1A201D;
+      --surface-2:   #222926;
+      --ink:         #E9EAE4;
+      --ink-muted:   #9BA398;
+      --ink-faint:   #6E766B;
+      --rule:        #2E3733;
+      --rule-strong: #414B46;
+      --accent:      #4FB89B;
+      --accent-soft: #17322B;
+      --clay:        #DB8368;
+      --clay-soft:   #33211B;
+      --amber:       #D9A441;
+      --amber-soft:  #322715;
+      --shadow:      0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #121614;
+    --surface:     #1A201D;
+    --surface-2:   #222926;
+    --ink:         #E9EAE4;
+    --ink-muted:   #9BA398;
+    --ink-faint:   #6E766B;
+    --rule:        #2E3733;
+    --rule-strong: #414B46;
+    --accent:      #4FB89B;
+    --accent-soft: #17322B;
+    --clay:        #DB8368;
+    --clay-soft:   #33211B;
+    --amber:       #D9A441;
+    --amber-soft:  #322715;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1220px;
+    margin: 0 auto;
+    padding: clamp(1.25rem, 3vw, 2.75rem) clamp(1rem, 3vw, 2rem) 4rem;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead { border-bottom: 1px solid var(--rule-strong); padding-bottom: 1.5rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 .6rem;
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(1.7rem, 4.2vw, 2.9rem);
+    line-height: 1.12;
+    letter-spacing: -.015em;
+    margin: 0 0 .5rem;
+    text-wrap: balance;
+  }
+  h1 em { font-style: italic; color: var(--accent); }
+
+  .standfirst {
+    font-family: var(--serif);
+    font-size: clamp(1rem, 1.8vw, 1.14rem);
+    color: var(--ink-muted);
+    max-width: 62ch;
+    margin: 0;
+  }
+
+  /* ---------- arc strip ---------- */
+  .arc {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .04em;
+    color: var(--ink-muted);
+  }
+  .arc b { color: var(--ink); font-weight: 600; }
+  .arc span[aria-hidden] { color: var(--rule-strong); }
+
+  /* ---------- layout ---------- */
+  .stage-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    gap: clamp(1.25rem, 3vw, 2.5rem);
+    margin-top: 2rem;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .stage-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- rail ---------- */
+  .rail { position: relative; }
+
+  .phase {
+    font-family: var(--mono);
+    font-size: .66rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 1.4rem 0 .55rem;
+    padding-left: 2.15rem;
+  }
+  .phase:first-child { margin-top: 0; }
+
+  .step {
+    position: relative;
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-radius: 7px;
+    padding: .5rem .7rem .5rem 2.15rem;
+    margin-bottom: 1px;
+    cursor: pointer;
+    color: var(--ink-muted);
+    font-family: var(--sans);
+    font-size: .875rem;
+    line-height: 1.4;
+    transition: background-color .12s ease, color .12s ease;
+  }
+  .step:hover { background: var(--surface-2); color: var(--ink); }
+  .step:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* the flow spine */
+  .step::before {
+    content: "";
+    position: absolute;
+    left: .72rem;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: var(--rule);
+  }
+  .step.flowed::before { background: var(--accent); width: 2px; left: calc(.72rem - .5px); }
+  .step:first-of-type::before { top: 1.05rem; }
+  .step.is-last::before { bottom: auto; height: 1.05rem; }
+
+  /* the node marker */
+  .step::after {
+    content: "";
+    position: absolute;
+    left: .35rem;
+    top: .82rem;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--ground);
+    border: 1.5px solid var(--rule-strong);
+    transition: background-color .12s ease, border-color .12s ease, transform .12s ease;
+  }
+  .step.flowed::after { border-color: var(--accent); background: var(--accent); }
+  .step[aria-current="true"]::after { transform: scale(1.5); background: var(--accent); border-color: var(--accent); }
+
+  .step[aria-current="true"] {
+    background: var(--surface);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: var(--shadow);
+  }
+
+  .step .n {
+    font-family: var(--mono);
+    font-size: .7rem;
+    color: var(--ink-faint);
+    margin-right: .45rem;
+  }
+  .step[aria-current="true"] .n { color: var(--accent); }
+
+  /* ---------- panel ---------- */
+  .panel {
+    position: sticky;
+    top: 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: clamp(1.15rem, 2.6vw, 1.9rem);
+    min-height: 30rem;
+  }
+  @media (max-width: 900px) { .panel { position: static; min-height: 0; } }
+
+  .panel-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .55rem;
+    margin-bottom: .3rem;
+  }
+
+  .pill {
+    font-family: var(--mono);
+    font-size: .66rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    padding: .18rem .5rem;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .pill.done    { background: var(--accent-soft); color: var(--accent); }
+  .pill.now     { background: var(--amber-soft);  color: var(--amber); }
+  .pill.next    { background: var(--surface-2);   color: var(--ink-faint); border: 1px solid var(--rule); }
+  .pill.given   { background: var(--surface-2);   color: var(--ink-muted); }
+  .pill.meta    { background: none; color: var(--ink-faint); border: 1px solid var(--rule); }
+
+  .panel h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(1.35rem, 3vw, 1.85rem);
+    line-height: 1.15;
+    letter-spacing: -.012em;
+    margin: .35rem 0 .15rem;
+    text-wrap: balance;
+  }
+
+  .role {
+    font-family: var(--mono);
+    font-size: .74rem;
+    color: var(--ink-faint);
+    margin: 0 0 1.15rem;
+  }
+
+  .block { margin-bottom: 1.25rem; }
+  .block:last-child { margin-bottom: 0; }
+
+  .block h3 {
+    font-family: var(--mono);
+    font-size: .67rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    margin: 0 0 .4rem;
+  }
+
+  .block p {
+    margin: 0 0 .65rem;
+    max-width: 66ch;
+  }
+  .block p:last-child { margin-bottom: 0; }
+
+  .block.why {
+    border-left: 2px solid var(--accent);
+    padding-left: .95rem;
+  }
+  .block.why h3 { color: var(--accent); }
+
+  code, .k {
+    font-family: var(--mono);
+    font-size: .855em;
+    background: var(--surface-2);
+    padding: .08em .34em;
+    border-radius: 3px;
+  }
+
+  .out {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+  }
+  .out span {
+    font-family: var(--mono);
+    font-size: .74rem;
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: .22rem .5rem;
+    color: var(--ink-muted);
+  }
+
+  /* ---------- figures ---------- */
+  .fig {
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 1rem 1.05rem;
+    overflow-x: auto;
+  }
+  .fig-cap {
+    font-family: var(--mono);
+    font-size: .68rem;
+    color: var(--ink-faint);
+    margin-top: .6rem;
+  }
+
+  /* waterfall bars */
+  .wf { display: grid; gap: .3rem; min-width: 20rem; }
+  .wf-row {
+    display: grid;
+    grid-template-columns: 11.5rem 1fr 4rem;
+    align-items: center;
+    gap: .6rem;
+    font-size: .78rem;
+  }
+  .wf-row .lbl { font-family: var(--mono); font-size: .72rem; color: var(--ink-muted); }
+  .wf-row .lbl.lvl { color: var(--ink); }
+  .wf-row .bar { height: 13px; border-radius: 2px; }
+  .wf-row .bar.lvl { background: var(--accent); }
+  .wf-row .bar.ded { background: var(--clay); }
+  .wf-row .val {
+    font-family: var(--mono);
+    font-size: .72rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-muted);
+  }
+
+  /* allocation figure */
+  .alloc { min-width: 21rem; font-family: var(--mono); font-size: .78rem; }
+  .alloc table { border-collapse: collapse; width: 100%; }
+  .alloc th {
+    text-align: left;
+    font-weight: 500;
+    font-size: .68rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 0 .7rem .35rem 0;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  .alloc td {
+    padding: .35rem .7rem .35rem 0;
+    border-bottom: 1px solid var(--rule);
+    font-variant-numeric: tabular-nums;
+  }
+  .alloc td.num, .alloc th.num { text-align: right; }
+  .alloc tr.sum td { border-bottom: 0; border-top: 1px solid var(--rule-strong); font-weight: 600; color: var(--accent); }
+
+  /* profit curve */
+  .curve { display: block; width: 100%; max-width: 26rem; height: auto; }
+
+  /* ---------- nav ---------- */
+  .nav {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin-top: 1.6rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--rule);
+  }
+  .nav button {
+    font-family: var(--sans);
+    font-size: .82rem;
+    padding: .42rem .85rem;
+    background: var(--surface-2);
+    color: var(--ink);
+    border: 1px solid var(--rule-strong);
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .nav button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .nav button:disabled { opacity: .38; cursor: default; }
+  .nav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .nav .hint {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: .68rem;
+    color: var(--ink-faint);
+  }
+
+  /* ---------- legend ---------- */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.1rem;
+    margin-top: 2.5rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: .7rem;
+    color: var(--ink-faint);
+  }
+  .legend i { font-style: normal; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: .4rem; vertical-align: baseline; }
+  .dot.done { background: var(--accent); }
+  .dot.now  { background: var(--amber); }
+  .dot.next { background: var(--ground); border: 1.5px solid var(--rule-strong); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">NIOUS · AXIOM Pricing Module · Track A — Pricing Engine &amp; MLOps</p>
+    <h1>From a knowledge graph to a <em>defensible price</em></h1>
+    <p class="standfirst">
+      Fourteen stages, one direction of travel. Every stage either produces a number
+      or refuses to — and says why. Click any stage, or use the arrow keys.
+    </p>
+    <p class="arc">
+      <b>Neo4j graph</b> <span aria-hidden="true">→</span> read <span aria-hidden="true">→</span>
+      decompose <span aria-hidden="true">→</span> understand <span aria-hidden="true">→</span>
+      recommend <span aria-hidden="true">→</span> <b>Price Recommendation</b>
+    </p>
+  </header>
+
+  <div class="stage-grid">
+    <nav class="rail" id="rail" aria-label="Pipeline stages"></nav>
+
+    <main class="panel" id="panel" aria-live="polite"></main>
+  </div>
+
+  <p class="legend">
+    <i><span class="dot done"></span>built and tested</i>
+    <i><span class="dot now"></span>in progress — Week 5</i>
+    <i><span class="dot next"></span>planned — Weeks 6–8</i>
+    <i>engine v0.3.0 · contract v0.2.0-draft</i>
+  </p>
+</div>
+
+<script>
+const STAGES = [
+  {
+    phase: "Read the graph",
+    n: "00", title: "The AXIOM knowledge graph", role: "Given to me · read-only · Neo4j 5.x over Bolt",
+    status: "given", tags: ["Input contract"],
+    does: "Six node types — Transaction, Customer, Product, Discount, Channel, Region — joined by six typed relationships. The pricing meaning lives on the <em>edges</em> as much as the nodes: <code>CONTAINS</code> carries the quantity, unit price and line total of each order line, and <code>DISCOUNTED_BY</code> carries the amount of each concession actually applied.",
+    why: "I never write to this graph, and I never see AXIOM's source code. That is deliberate — it protects client IP, and it means my module has to be a well-behaved guest that survives on a documented contract alone.",
+    out: ["8 logical tables", "700 transactions", "1,408 lines", "5 currencies"]
+  },
+  {
+    phase: "Read the graph",
+    n: "01", title: "The graph-access layer", role: "D1 · Week 2 · src/pricing/graph/source.py",
+    status: "done", tags: ["D1"],
+    does: "One interface — <code>GraphSource</code> — with two implementations behind it. The CSV backend reads a frozen snapshot; the Neo4j backend reads the live graph in <code>READ_ACCESS</code> mode. Both return DataFrames with identical column names and dtypes.",
+    why: "Neo4j credentials had not arrived, and I refused to let that block the engine. Because everything upstream talks to the interface rather than to a database, the day the URI arrives the only change is one line in <code>.env</code> — no engine code moves. The Cypher is already written and mechanically tested to contain no write clause.",
+    out: ["typed tables", "snapshot sha256", "provenance"]
+  },
+  {
+    phase: "Read the graph",
+    n: "02", title: "The entry gate", role: "D1 · Week 2 · graph/validation.py",
+    status: "done", tags: ["D1"],
+    does: "Runs once, before any pricing arithmetic, and answers one question: is this snapshot fit to compute on at all? <strong>Blocking</strong> findings stop the run — a dangling reference, a duplicate key, negative money, a header that disagrees with its own line items. <strong>Warnings</strong> let the run proceed but travel downstream into the confidence reasons.",
+    why: "The split is the whole design. Refusing to run on any imperfection would make the module useless on real data; running silently on broken data would make it dangerous. So the blocking set is small and is about <em>structure</em>, never about completeness — missing a unit cost is a warning, but a transaction whose header contradicts its lines is a hard stop, because there I do not know which number is true.",
+    out: ["0 blocking", "4 warnings", "reasons → confidence"]
+  },
+  {
+    phase: "Decompose",
+    n: "03", title: "One fact table, at line grain", role: "D2 · Week 3 · the central design decision",
+    status: "done", tags: ["D2"],
+    does: "Everything is computed exactly once, at the finest grain the graph offers — the transaction <em>line</em> — into a single table. Every aggregate that follows, whether by customer, product, segment, channel, region or month, is a <code>groupby</code> over that one table.",
+    why: "The obvious alternative is to write a calculation per grain: one for customers, one for products, one for segments. That is how a waterfall ends up disagreeing with itself — six months later someone fixes the customer version and forgets the segment one, and two reports quietly stop matching. With one fact table there is no second calculation to keep in sync, so the numbers cannot drift apart. It also means adding a new dimension costs one line of code rather than a new pipeline.",
+    fig: "alloc-none",
+    out: ["1,408 rows", "9 steps", "every dimension", "certification flags"]
+  },
+  {
+    phase: "Decompose",
+    n: "04", title: "Pro-rata allocation", role: "D2 · Week 3 · the one declared assumption",
+    status: "done", tags: ["D2"],
+    does: "Discounts hang off the <em>transaction</em>, not the line — the graph gives no line-level <code>DISCOUNTED_BY</code> edge. To reach line grain I allocate each transaction's discounts across its lines in proportion to line value: <code>share = line_total ÷ order_total</code>.",
+    why: "This is the only modelling assumption in an otherwise fully deterministic deliverable, so I declared it rather than burying it. It is <strong>exact in aggregate</strong> — the parts sum back to the whole to the cent, which is tested — so transaction grain and everything above it is unaffected by the choice. It is <strong>an assumption at product grain</strong>: a rebate triggered by one product but spread across the order gets mis-attributed. Pro-rata by value is the standard convention and the only defensible default while the graph stays silent on which line a discount belongs to. And a single constant, <code>ALLOCATION_METHOD</code>, marks the one line to change if that ever becomes available.",
+    fig: "alloc",
+    out: ["lossless rollup", "declared, not hidden", "one line to change"]
+  },
+  {
+    phase: "Decompose",
+    n: "05", title: "The price waterfall", role: "D2 · Week 3 · engine/waterfall.py",
+    status: "done", tags: ["D2"],
+    does: "The forensic descent from list price to what the seller actually keeps: subtract the negotiated gap below list, then the discounts printed on the invoice, then the off-invoice leakage that appears on no document at all — rebates, freight allowances, payment terms, co-op credits, side letters — and finally the cost of the goods.",
+    why: "Every step is a place where money left, and the point of doing it one step at a time is that you can <em>name</em> each one. Purely deterministic — no modelling, no estimation — which is exactly why it was the right thing to build first: if a number here is wrong, it is wrong for a reason I can point at.",
+    fig: "waterfall",
+    out: ["27% of list lost before cost", "3.6% off-invoice", "18.2% pocket margin"]
+  },
+  {
+    phase: "Decompose",
+    n: "06", title: "Aggregation and reconciliation", role: "D2 · Week 3 · engine/aggregation.py",
+    status: "done", tags: ["D2"],
+    does: "Roll the fact table up to any dimension, then immediately check that the groups sum back to the grand total — on every run, for every dimension.",
+    why: "The check costs milliseconds and catches an entire class of bug: a join that fans out and double-counts is completely invisible in the numbers themselves, but obvious the moment the groups stop adding up. Three other rules are enforced here because each is a common way a pricing dashboard lies — ratios come from sums and never from the mean of per-deal percentages; coverage is measured against the full population, not the certified subset; and a group that spans five currencies with no FX rate in the graph refuses to publish rather than inventing a unit.",
+    out: ["6 dimensions", "reconciled every run", "no cross-currency sums"]
+  },
+  {
+    phase: "Decompose",
+    n: "07", title: "The hand-computed oracle", role: "D2 acceptance · Week 3 · tests/reference/",
+    status: "done", tags: ["Acceptance"],
+    does: "An eleven-transaction fixture built by hand on round numbers, with every step worked out longhand on paper before the engine ever saw it. Each transaction pins one behaviour: a true zero, a missing cost, a discount of unknown amount, a below-cost sale, a free-of-charge order, a multi-currency deal.",
+    why: "I already had a second implementation to test against — but both read the same 700-transaction snapshot, so if I had misunderstood what a column <em>meant</em>, both would agree and both would be wrong. Agreement between two things that share an assumption is not evidence. The hand-built fixture removes the shared assumption, and it found two real defects nothing else had: ratios becoming ±infinity on a zero denominator, which would have shipped invalid JSON to Track B; and partial sums being presented as complete results.",
+    out: ["279 comparisons", "max difference 0.00", "first stage of the DVC pipeline"]
+  },
+  {
+    phase: "Understand the book",
+    n: "08", title: "Margin analytics & readiness score", role: "D3 · Week 4 · quality/",
+    status: "done", tags: ["D3"],
+    does: "Margin distribution, IQR outlier detection, leakage KPIs and the top leakage points — plus a 0–100 Pricing Data Readiness Score built from per-step availability, certification rate and the data-quality flag counts.",
+    why: "The score is a <em>gate</em>, not a report card. Segmentation and optimisation are only allowed to run on data that scores well enough to support them, because a clustering built on a book that cannot report its own costs will produce confident, meaningless segments. It also supersedes the deliberately naive confidence score I shipped in Week 2, which was just coverage lightly penalised for thin groups.",
+    out: ["leakage ranking", "IQR outliers", "0–100 readiness gate"]
+  },
+  {
+    phase: "Understand the book",
+    n: "09", title: "Customer segmentation", role: "D4 · Week 5 · in progress",
+    status: "now", tags: ["D4"],
+    does: "Cluster customers on pricing-relevant <em>behaviour</em> — price sensitivity, volume, average order value, margin contribution, payment behaviour, product-mix diversity — using k-means and hierarchical clustering, with k chosen by elbow and silhouette.",
+    why: "Two things make this governance work rather than a scikit-learn exercise. Assignments must be <strong>identical on re-runs</strong>, because a segment that changes when you re-run it cannot be the basis of a pricing policy. And a discovered cluster is only a <em>candidate</em> segment awaiting human ratification — that is 'declared, not inferred' applied to machine learning. Each segment also has to earn a readable profile with at least three distinguishing characteristics, or it is not a segment anyone can act on.",
+    out: ["Segment Assignment records", "stable across re-runs", "≥3 distinguishing traits each"]
+  },
+  {
+    phase: "Understand the book",
+    n: "10", title: "Price elasticity", role: "D5 · Week 5 · in progress",
+    status: "now", tags: ["D5"],
+    does: "How much does quantity move when price moves? A log-log regression — <code>ln(Q) = α + β·ln(P) + controls</code> — gives β directly as the elasticity, with hierarchical Bayesian shrinkage pulling noisy thin-segment estimates toward the category mean.",
+    why: "B2B makes this genuinely hard in two ways. Prices are set <em>in response to</em> demand, so the regression is endogenous and the raw coefficient is biased. And many segments have too few deals to estimate anything stable — which is what shrinkage is for: it borrows strength from the category so a segment with six deals is not allowed to shout. The discipline I care most about is honest uncertainty: every estimate ships with a credible interval, never a bare point estimate, and if that interval crosses zero or the sign is implausible I mark the estimate <strong>unfit to drive optimisation</strong> and say so out loud.",
+    out: ["β with credible intervals", "shrunk thin segments", "fit-for-optimisation flag"]
+  },
+  {
+    phase: "Recommend a price",
+    n: "11", title: "Win-probability model", role: "D6 · Week 6 · planned",
+    status: "next", tags: ["D6"],
+    does: "In negotiated B2B each quote is simply won or lost, so the price-response function is an acceptance probability: a calibrated logistic regression giving P(win) as a function of price relative to a reference, deal size, segment, region, product and relationship features, fitted on historical won and lost quotes.",
+    why: "This is where the module stops describing history and starts making a claim about the future, so calibration matters more than accuracy — a model that says 70% has to win about 70% of the time, or the expected-profit maths downstream is built on sand.",
+    out: ["P(win | price, deal)", "calibration curve", "drift monitored"]
+  },
+  {
+    phase: "Recommend a price",
+    n: "12", title: "Constrained optimiser", role: "D6 · Week 6 · planned",
+    status: "next", tags: ["D6"],
+    does: "Maximise expected profit — <code>Π(p) = (p − c) · P(win|p)</code> — by grid search over a price ladder, subject to a floor at cost or policy minimum, a ceiling at the market corridor, and a minimum volume constraint. Output is a price range plus the margin-versus-win trade-off curve.",
+    why: "The curve is single-peaked between 'too cheap, always wins, thin margin' and 'too dear, high margin, rarely wins'. Grid search is not the sophisticated choice, and that is the point: because the acceptance curve is estimated rather than analytic, a transparent search over an explicit ladder is auditable, trivially constrained, and explainable to a regulator — three things a clever solver is not. We deliberately do <em>not</em> use bandits or reinforcement learning: they need to quote bad prices on purpose in order to learn, and in sparse high-value negotiated deals that is commercially unacceptable.",
+    fig: "curve",
+    out: ["price low / mid / high", "trade-off curve", "constraints recorded"]
+  },
+  {
+    phase: "Recommend a price",
+    n: "13", title: "The result contract", role: "D8 · frozen Week 7 · contracts/schema.py",
+    status: "next", tags: ["D8"],
+    does: "Every number leaves the engine wrapped in what a governance product needs: <code>Evidence</code> naming the exact records it came from, a <code>Confidence</code> carrying a score, a band <em>and its reasons</em>, a <code>status</code> distinguishing complete from partial from unavailable from abstained, and <code>Provenance</code> with the snapshot hash and versions.",
+    why: "The Brief's rule is that the narrative layer explains only numbers the engine computed and never recalculates them. I designed this file so that rule is enforced by the types rather than merely written down: money is a <code>Money</code>, not a <code>float</code>, so you cannot read an amount without also seeing whether it exists; and a validator rejects any record that claims to be complete while citing nothing.",
+    out: ["Price Recommendation", "evidence IDs", "confidence + reasons", "snapshot hash"]
+  },
+  {
+    phase: "Recommend a price",
+    n: "14", title: "Hand-off to the narrative layer", role: "Track B · Weeks 7–8 · integration",
+    status: "next", tags: ["Interface"],
+    does: "Mohamed's hybrid retrieval layer takes my result object, pulls the cited records back out of the graph, and writes a grounded explanation in English and Arabic — citing those records and no others.",
+    why: "This clean separation is what makes the whole module auditable. I produce the numbers and guarantee they can be reproduced; he explains them and guarantees the explanation is grounded. Neither of us can quietly cover for the other, which is exactly the property a regulator would want.",
+    out: ["cited bilingual narrative", "end-to-end demo", "final delivery review"]
+  }
+];
+
+const FIGS = {
+  waterfall: () => `
+    <div class="fig">
+      <div class="wf">
+        ${[
+          ["List value","lvl",100,"100.0%"],
+          ["− negotiated off-list","ded",11.9,"11.9%"],
+          ["= Gross (invoiced)","lvl",88.1,"88.1%"],
+          ["− on-invoice discounts","ded",11.8,"11.8%"],
+          ["= Invoice price","lvl",76.3,"76.3%"],
+          ["− off-invoice leakage","ded",3.6,"3.6%"],
+          ["= Pocket price","lvl",72.8,"72.8%"],
+          ["− COGS","ded",59.5,"59.5%"],
+          ["= Pocket margin","lvl",13.2,"13.2%"]
+        ].map(([l,k,w,v]) => `
+          <div class="wf-row">
+            <span class="lbl ${k==='lvl'?'lvl':''}">${l}</span>
+            <span class="bar ${k}" style="width:${w}%"></span>
+            <span class="val">${v}</span>
+          </div>`).join("")}
+      </div>
+      <p class="fig-cap">Whole book, certified transactions only (530 of 700). Every bar is a share of list value.</p>
+    </div>`,
+
+  alloc: () => `
+    <div class="fig">
+      <div class="alloc">
+        <table>
+          <thead>
+            <tr><th>Order line</th><th class="num">Line total</th><th class="num">Share</th><th class="num">Of a 120 discount</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>PRD-1 × 10</td><td class="num">800.00</td><td class="num">⅔</td><td class="num">80.00</td></tr>
+            <tr><td>PRD-3 × 10</td><td class="num">400.00</td><td class="num">⅓</td><td class="num">40.00</td></tr>
+            <tr class="sum"><td>Transaction</td><td class="num">1,200.00</td><td class="num">1</td><td class="num">120.00</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="fig-cap">The parts sum back to the whole, to the cent. That is what lets the entire engine live on one table.</p>
+    </div>`,
+
+  "alloc-none": () => `
+    <div class="fig">
+      <div class="alloc">
+        <table>
+          <thead><tr><th>Ask a different question</th><th>What changes</th></tr></thead>
+          <tbody>
+            <tr><td>Margin by customer</td><td>a groupby</td></tr>
+            <tr><td>Margin by product family</td><td>a groupby</td></tr>
+            <tr><td>Margin by region × month</td><td>a groupby</td></tr>
+            <tr class="sum"><td>New calculations written</td><td>none</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="fig-cap">One table, computed once. Every dimension is a view of it, not a re-implementation.</p>
+    </div>`,
+
+  curve: () => `
+    <div class="fig">
+      <svg class="curve" viewBox="0 0 400 200" role="img"
+           aria-label="Expected profit curve: single-peaked between a price that always wins on thin margin and a price that rarely wins">
+        <line x1="38" y1="168" x2="384" y2="168" stroke="var(--rule-strong)" stroke-width="1"/>
+        <line x1="38" y1="16" x2="38" y2="168" stroke="var(--rule-strong)" stroke-width="1"/>
+        <path d="M38 160 C 120 132, 160 46, 214 44 C 268 42, 320 128, 384 165"
+              fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="214" y1="44" x2="214" y2="168" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3 3"/>
+        <circle cx="214" cy="44" r="4.5" fill="var(--accent)"/>
+        <line x1="86" y1="168" x2="86" y2="16" stroke="var(--rule)" stroke-width="1" stroke-dasharray="2 4"/>
+        <line x1="342" y1="168" x2="342" y2="16" stroke="var(--rule)" stroke-width="1" stroke-dasharray="2 4"/>
+        <text x="90" y="30" font-family="var(--mono)" font-size="9.5" fill="var(--clay)">floor</text>
+        <text x="300" y="30" font-family="var(--mono)" font-size="9.5" fill="var(--clay)">ceiling</text>
+        <text x="150" y="185" font-family="var(--mono)" font-size="9.5" fill="var(--ink-faint)">always wins,</text>
+        <text x="150" y="196" font-family="var(--mono)" font-size="9.5" fill="var(--ink-faint)">thin margin</text>
+        <text x="290" y="185" font-family="var(--mono)" font-size="9.5" fill="var(--ink-faint)">high margin,</text>
+        <text x="290" y="196" font-family="var(--mono)" font-size="9.5" fill="var(--ink-faint)">rarely wins</text>
+        <text x="222" y="40" font-family="var(--mono)" font-size="10" fill="var(--accent)">recommended</text>
+        <text x="6" y="94" font-family="var(--mono)" font-size="9.5" fill="var(--ink-faint)" transform="rotate(-90 12 94)">Π(p)</text>
+      </svg>
+      <p class="fig-cap">Expected profit = (price − cost) × P(win | price). Searched over an explicit ladder, clipped to the corridor.</p>
+    </div>`
+};
+
+const STATUS_LABEL = { done: "Built", now: "In progress", next: "Planned", given: "Given" };
+
+const rail = document.getElementById("rail");
+const panel = document.getElementById("panel");
+let active = 0;
+
+// ---- build the rail ----
+let lastPhase = null;
+STAGES.forEach((s, i) => {
+  if (s.phase !== lastPhase) {
+    const h = document.createElement("p");
+    h.className = "phase";
+    h.textContent = s.phase;
+    rail.appendChild(h);
+    lastPhase = s.phase;
+  }
+  const b = document.createElement("button");
+  b.className = "step" + (i === STAGES.length - 1 ? " is-last" : "");
+  b.type = "button";
+  b.dataset.i = i;
+  b.innerHTML = `<span class="n">${s.n}</span>${s.title}`;
+  b.addEventListener("click", () => select(i));
+  rail.appendChild(b);
+});
+
+const steps = [...rail.querySelectorAll(".step")];
+
+function render(i) {
+  const s = STAGES[i];
+  panel.innerHTML = `
+    <div class="panel-head">
+      <span class="pill ${s.status}">${STATUS_LABEL[s.status]}</span>
+      ${s.tags.map(t => `<span class="pill meta">${t}</span>`).join("")}
+    </div>
+    <h2>${s.title}</h2>
+    <p class="role">${s.role}</p>
+
+    <div class="block">
+      <h3>What it does</h3>
+      <p>${s.does}</p>
+    </div>
+
+    <div class="block why">
+      <h3>Why it is built this way</h3>
+      <p>${s.why}</p>
+    </div>
+
+    ${s.fig ? `<div class="block">${FIGS[s.fig]()}</div>` : ""}
+
+    <div class="block">
+      <h3>What comes out</h3>
+      <div class="out">${s.out.map(o => `<span>${o}</span>`).join("")}</div>
+    </div>
+
+    <div class="nav">
+      <button type="button" id="prev" ${i === 0 ? "disabled" : ""}>← Previous</button>
+      <button type="button" id="next" ${i === STAGES.length - 1 ? "disabled" : ""}>Next →</button>
+      <span class="hint">${i + 1} of ${STAGES.length} · arrow keys to move</span>
+    </div>`;
+
+  const p = document.getElementById("prev");
+  const n = document.getElementById("next");
+  if (p) p.addEventListener("click", () => select(i - 1));
+  if (n) n.addEventListener("click", () => select(i + 1));
+}
+
+function select(i, focusStep) {
+  if (i < 0 || i >= STAGES.length) return;
+  active = i;
+  steps.forEach((b, j) => {
+    b.setAttribute("aria-current", j === i ? "true" : "false");
+    b.classList.toggle("flowed", j <= i);
+  });
+  render(i);
+  if (focusStep) steps[i].focus();
+}
+
+document.addEventListener("keydown", e => {
+  if (e.target.matches("input, textarea")) return;
+  if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); select(active + 1, true); }
+  if (e.key === "ArrowUp"   || e.key === "ArrowLeft")  { e.preventDefault(); select(active - 1, true); }
+});
+
+select(0);
+</script>
