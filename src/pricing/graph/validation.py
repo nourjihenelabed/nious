@@ -1,68 +1,58 @@
-"""
-Entry-point validation for the graph-access layer (D1).
-
-Brief section 7.4, "stage gates and audit", requires the module to
-*validate inputs at the entry point and refuse to run on incomplete data*.
-
-This is that gate. It runs once, before any pricing computation, and answers a
-single question: is this snapshot fit to compute on at all?
-
-Two levels, deliberately separated:
-
-    BLOCKING  -- the snapshot is structurally broken. Refuse to run. Examples:
-                 a required table is missing, a transaction has no customer,
-                 line items reference products that do not exist.
-    WARNING   -- the snapshot is usable but degraded. Run, and carry the
-                 warnings into the result's confidence reasons. Examples:
-                 some products lack a unit cost, some discount edges have no
-                 amount.
-
-The distinction matters. Refusing to run on any imperfection would make the
-module useless on real data; running silently on broken data would make it
-dangerous. The blocking set is small and is about *structure*, never about
-completeness.
-"""
+"""Entry-point validation (D1): decide whether a snapshot is fit to compute on."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
 
-from .. import config
-from .source import GraphSource
+from .source import GraphSource, Source
 
 
 class Severity(str, Enum):
+    """Blocking findings stop the run; warnings travel into confidence reasons."""
+
     BLOCKING = "blocking"
     WARNING = "warning"
 
 
 @dataclass(frozen=True)
 class Finding:
+    """One validation finding, with its blast radius."""
+
     severity: Severity
     check: str
     detail: str
     n_affected: int = 0
 
     def __str__(self) -> str:
-        n = f" ({self.n_affected} affected)" if self.n_affected else ""
-        return f"[{self.severity.value.upper()}] {self.check}: {self.detail}{n}"
+        """One printable line."""
+        n = f" ({self.n_affected:,} records)" if self.n_affected else ""
+        label = (
+            "STOPS THE RUN" if self.severity is Severity.BLOCKING
+            else self.severity.value.upper()
+        )
+        return f"[{label}] {self.check}: {self.detail}{n}"
 
 
 @dataclass
 class ValidationReport:
+    """Every finding from one validation pass."""
+
     findings: list[Finding] = field(default_factory=list)
 
     @property
     def blocking(self) -> list[Finding]:
+        """Findings that make the snapshot unfit to compute on."""
         return [f for f in self.findings if f.severity is Severity.BLOCKING]
 
     @property
     def warnings(self) -> list[Finding]:
+        """Findings that degrade the result without invalidating it."""
         return [f for f in self.findings if f.severity is Severity.WARNING]
 
     @property
     def ok(self) -> bool:
+        """True when nothing blocking was found."""
         return not self.blocking
 
     def reasons(self) -> tuple[str, ...]:
@@ -70,9 +60,13 @@ class ValidationReport:
         return tuple(f"{f.check}: {f.detail}" for f in self.warnings)
 
     def __str__(self) -> str:
+        """The whole report as printable text."""
         if not self.findings:
             return "Snapshot validated: no findings."
-        head = f"Snapshot validation: {len(self.blocking)} blocking, {len(self.warnings)} warnings"
+        head = (
+            f"Data checks: {len(self.blocking)} problem(s) that stop the run, "
+            f"{len(self.warnings)} warning(s)"
+        )
         return "\n".join([head, *(f"  {f}" for f in self.findings)])
 
 
@@ -80,35 +74,47 @@ class SnapshotRejected(RuntimeError):
     """Raised when a snapshot is too broken to compute on."""
 
     def __init__(self, report: ValidationReport):
+        """Carry the report that caused the refusal."""
         self.report = report
         super().__init__("Refusing to run on this snapshot.\n" + str(report))
 
 
-# --------------------------------------------------------------------------
-def validate(src: GraphSource) -> ValidationReport:
-    """Run every entry-point check and return the report (does not raise)."""
+def validate(src: Source, profile=None) -> ValidationReport:
+    """Run every entry-point check and return the report, without raising."""
+    from ..profiles import get_profile
+
+    profile = profile or get_profile()
     report = ValidationReport()
     add = report.findings.append
 
-    # -- 1. All tables present and non-empty ------------------------------
-    for name in config.CSV_FILES:
+    for name in profile.tables:
         try:
             df = src.table(name)
-        except Exception as exc:  # missing file, bad query, ...
+        except Exception as exc:
             add(Finding(Severity.BLOCKING, "table available", f"{name} unreadable: {exc}"))
             continue
         if df.empty:
             add(Finding(Severity.BLOCKING, "table non-empty", f"{name} has no rows"))
 
     if report.blocking:
-        return report  # nothing further is meaningful
+        return report
 
+    checker = getattr(profile, "validate_source", None)
+    if checker is not None:
+        checker(src, report)
+    return report
+
+
+def _b2b_checks(src: GraphSource, report: ValidationReport) -> ValidationReport:
+    """Entry-point checks for the `b2b_industrial` schema."""
+    import pandas as pd
+
+    add = report.findings.append
     txn = src.transactions()
     lines = src.transaction_lines()
     tdisc = src.transaction_discounts()
     prods = src.products()
 
-    # -- 2. Structural integrity: no dangling references ------------------
     checks = [
         ("transaction -> customer", txn["customer_id"], set(src.customers()["customer_id"])),
         ("transaction -> channel", txn["channel_id"], set(src.channels()["channel_id"])),
@@ -130,7 +136,6 @@ def validate(src: GraphSource) -> ValidationReport:
                 )
             )
 
-    # -- 3. Identity: keys must be unique ---------------------------------
     for label, series in (
         ("transaction_id", txn["transaction_id"]),
         ("customer_id", src.customers()["customer_id"]),
@@ -147,7 +152,6 @@ def validate(src: GraphSource) -> ValidationReport:
                 )
             )
 
-    # -- 4. A transaction with no lines has no pricing basis --------------
     no_lines = set(txn["transaction_id"]) - set(lines["transaction_id"])
     if no_lines:
         add(
@@ -159,8 +163,6 @@ def validate(src: GraphSource) -> ValidationReport:
             )
         )
 
-    # -- 5. Semantic types (Brief 5.3) ------------------------------------
-    # Negative money is a contradiction, not a data gap -> blocking.
     for label, series in (
         ("product.list_price", prods["list_price"]),
         ("product.unit_cost", prods["unit_cost"]),
@@ -176,11 +178,10 @@ def validate(src: GraphSource) -> ValidationReport:
     if len(neg_qty):
         add(Finding(Severity.BLOCKING, "semantic type", "negative line quantity", len(neg_qty)))
 
-    future = txn[txn["date"] > __import__("pandas").Timestamp.now()]
+    future = txn[txn["date"] > pd.Timestamp.now()]
     if len(future):
         add(Finding(Severity.WARNING, "semantic type", "transactions dated in the future", len(future)))
 
-    # -- 6. Completeness -> warnings, carried into confidence -------------
     n_no_list = int(prods["list_price"].isna().sum())
     if n_no_list:
         affected = lines[lines["product_id"].isin(prods.loc[prods["list_price"].isna(), "product_id"])]
@@ -207,11 +208,6 @@ def validate(src: GraphSource) -> ValidationReport:
             )
         )
 
-    # -- 6b. Multiple currencies with no conversion rate ------------------
-    # A warning rather than a blocker: transaction-grain and region-grain
-    # results are still valid. It is only aggregates that SPAN currencies that
-    # are meaningless, and the engine refuses to publish those individually
-    # (engine/result.py). Flagging it here means it appears in every run log.
     currencies = src.regions()["currency"].dropna().unique()
     if len(currencies) > 1:
         has_fx = any(
@@ -241,14 +237,11 @@ def validate(src: GraphSource) -> ValidationReport:
             )
         )
 
-    # -- 7. Header vs lines must agree ------------------------------------
     line_sum = lines.groupby("transaction_id")["line_total"].sum()
     header = txn.set_index("transaction_id")["gross_amount"]
     diff = (line_sum.reindex(header.index) - header).abs()
     n_bad = int((diff > 0.01).sum())
     if n_bad:
-        # The header and the edges disagreeing means we do not know which is
-        # true. That is structural, not a gap.
         add(
             Finding(
                 Severity.BLOCKING,
@@ -261,14 +254,9 @@ def validate(src: GraphSource) -> ValidationReport:
     return report
 
 
-def require_valid(src: GraphSource) -> ValidationReport:
-    """
-    Validate and refuse to continue on blocking findings.
-
-    Call this at the top of every engine entry point. `SnapshotRejected` is a
-    loud, specific failure -- much better than a quiet wrong number.
-    """
-    report = validate(src)
+def require_valid(src: Source, profile=None) -> ValidationReport:
+    """Validate and refuse to continue on blocking findings."""
+    report = validate(src, profile)
     if not report.ok:
         raise SnapshotRejected(report)
     return report

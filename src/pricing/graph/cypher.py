@@ -1,22 +1,6 @@
-"""
-Every Cypher query the engine uses, in one place.
-
-Why a separate module: the queries are the *real* interface to AXIOM. Keeping
-them here means (a) they can be reviewed by the NIOUS team without reading the
-Python, (b) the CSV exporter and the live Neo4j reader use the exact same
-queries, so the two backends can never drift apart.
-
-Schema reference: Project Brief section 5 (entities, relationships, edge
-properties). All queries are READ-ONLY -- no CREATE / MERGE / SET / DELETE
-anywhere in this file, by design. See tests/test_cypher_readonly.py.
-"""
+"""Every Cypher query the engine uses, in one place. All of them read-only."""
 
 from __future__ import annotations
-
-# --------------------------------------------------------------------------
-# Node extraction -- one query per node label, returning a flat row shape that
-# matches the CSV column headers exactly.
-# --------------------------------------------------------------------------
 
 TRANSACTIONS = """
 MATCH (t:Transaction)
@@ -93,11 +77,6 @@ RETURN r.region_id   AS region_id,
 ORDER BY r.region_id
 """
 
-# --------------------------------------------------------------------------
-# Relationship extraction -- edges that carry properties become their own
-# "line item" tables, exactly as in the CSV snapshot.
-# --------------------------------------------------------------------------
-
 TRANSACTION_LINES = """
 MATCH (t:Transaction)-[c:CONTAINS]->(p:Product)
 RETURN t.transaction_id AS transaction_id,
@@ -116,7 +95,6 @@ RETURN t.transaction_id          AS transaction_id,
 ORDER BY t.transaction_id, d.discount_id
 """
 
-# Maps table name -> query. Used by both the exporter and the live reader.
 QUERIES = {
     "transactions": TRANSACTIONS,
     "transaction_lines": TRANSACTION_LINES,
@@ -127,13 +105,6 @@ QUERIES = {
     "channels": CHANNELS,
     "regions": REGIONS,
 }
-
-
-# --------------------------------------------------------------------------
-# Targeted queries -- used for the single-customer pull (the Week 1 quick win).
-# Pushing the filter into Cypher instead of loading everything matters once the
-# graph is production-sized.
-# --------------------------------------------------------------------------
 
 CUSTOMER_TRANSACTIONS = """
 MATCH (t:Transaction)-[:PLACED_BY]->(c:Customer {customer_id: $customer_id})
@@ -150,11 +121,6 @@ RETURN t.transaction_id AS transaction_id,
 ORDER BY t.date
 """
 
-# --------------------------------------------------------------------------
-# Profiling queries -- cheap graph-level counts we run before trusting anything.
-# The CSV backend reproduces these numbers in pandas; the numbers must agree.
-# --------------------------------------------------------------------------
-
 NODE_COUNTS = """
 MATCH (n)
 RETURN labels(n)[0] AS label, count(*) AS n
@@ -167,8 +133,6 @@ RETURN type(r) AS relationship, count(*) AS n
 ORDER BY relationship
 """
 
-# Orphan check: transactions that do not resolve to a customer are a hard stop
-# for the waterfall -- we must never silently aggregate them into a segment.
 ORPHAN_TRANSACTIONS = """
 MATCH (t:Transaction)
 WHERE NOT (t)-[:PLACED_BY]->(:Customer)

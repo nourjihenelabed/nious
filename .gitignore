@@ -10,14 +10,25 @@ mlflow.db
 mlflow.db-journal
 .venv/
 venv/
+axiompricingvenv/
 
 # Generated artefacts -- regenerate with the scripts, do not commit
 reports/*.csv
 reports/*.md
 reports/*.json
 reports/*.txt
+reports/*.pdf
 !reports/.gitkeep
+
+# Per-profile report directories (PRICING_REPORTS_DIR)
+reports_*/
 
 # Data snapshots are versioned with DVC, not git
 snapshot_*/
 *.dvc.lock
+
+# Demo server cache (python demo/server.py --cache)
+demo/.cache/
+
+# Personal editor settings
+.vscode/

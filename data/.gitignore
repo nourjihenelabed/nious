@@ -1,1 +1,8 @@
 /snapshot_synthetic_v1
+
+# Scenario datasets built by scripts/make_scenario.py. Both are reproducible from
+# a seed -- the reduced one is a deterministic cut of the delivered export, the
+# large one is generated -- so the script is the artefact worth versioning and a
+# 12 MB JSON is not. `docs/SCENARIOS.md` has the commands that rebuild them.
+/scenarios
+/snapshot_axiom_v2

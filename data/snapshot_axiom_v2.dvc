@@ -1,0 +1,6 @@
+outs:
+- md5: a314f2f17d6a31d6b1726e6b248b928b.dir
+  size: 70002753
+  nfiles: 3
+  hash: md5
+  path: snapshot_axiom_v2

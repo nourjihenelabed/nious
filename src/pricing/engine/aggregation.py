@@ -1,71 +1,25 @@
-"""
-Waterfall aggregation (D2, second half).
-
-    "Aggregatable by customer, product, segment, channel, region, period."
-                                        -- onboarding plan, deliverable D2
-
-Because the engine keeps one line-grain fact table, aggregation is a groupby and
-nothing more. There is no second calculation to keep in sync, which is the whole
-reason the fact table exists.
-
-WHAT AGGREGATION MUST NOT DO
-----------------------------
-1. Not average percentages. Pocket margin % for a segment is
-   sum(margin) / sum(pocket), never mean(margin % per deal). Averaging ratios
-   weights a EUR 400 order the same as a EUR 400,000 one and is the single most
-   common way a pricing dashboard ends up lying.
-2. Not mix certified and uncertified rows into one total. Each group reports its
-   own coverage, so a segment that is 40% decomposable cannot masquerade as a
-   segment that is 100% decomposable.
-3. Not drop empty groups silently. A segment with zero certified transactions
-   must appear with UNAVAILABLE values, so a reader notices it is missing.
-4. Not sum across currencies. The graph carries a currency per region and no FX
-   rate anywhere, so adding an AED line to a EUR line produces a number with no
-   unit. Every aggregate therefore reports `n_currencies`, and any group
-   spanning more than one is refused publication downstream (see
-   engine/result.py). The fix at the call site is to include `currency` in the
-   grain: `aggregate(w, ["segment", "currency"])`.
-"""
+"""Waterfall aggregation (D2): roll the waterfall up to any dimension it supports."""
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
-from .waterfall import DEDUCTIONS, DIMENSIONS, STEPS, Waterfall
-
-# Friendly aliases so callers can say `aggregate(w, "segment")` or
-# `aggregate(w, "region")` without knowing the column names.
-DIMENSION_ALIASES: dict[str, str] = {
-    "customer": "customer_id",
-    "product": "product_id",
-    "channel": "channel_id",
-    "region": "region_id",
-    "transaction": "transaction_id",
-    "month": "period",
-    "category": "category",
-    "family": "product_family",
-    "industry": "industry",
-    "tier": "tier",
-    "size": "size",
-    "country": "country",
-    "market": "market_type",
-    "payment_terms": "payment_terms",
-}
-
-# Descriptive labels carried alongside IDs, so an aggregate is readable without
-# a second join.
-LABEL_FOR: dict[str, str] = {
-    "customer_id": "customer_name",
-    "product_id": "product_name",
-    "region_id": "region_name",
-    "channel_id": "channel_type",
-}
+from ..spec import KEY, LINE
+from .waterfall import GRAIN_NOTE, Waterfall, complete_sum, ratio
 
 
-def resolve(dimension: str | list[str]) -> list[str]:
+def resolve(dimension: str | list[str], w: Waterfall | None = None) -> list[str]:
     """Map user-facing dimension names onto fact-table columns."""
-    dims = [dimension] if isinstance(dimension, str) else list(dimension)
-    return [DIMENSION_ALIASES.get(d, d) for d in dims]
+    from ..profiles import get_profile
+
+    profile = w.profile if w is not None else get_profile()
+    return profile.resolve(dimension)
+
+
+def _label_columns(w: Waterfall) -> dict[str, str]:
+    """Dimension column -> the human-readable column that names it."""
+    return {d.column: d.label_column for d in w.profile.dimensions if d.label_column}
 
 
 def aggregate(
@@ -74,56 +28,46 @@ def aggregate(
     certified_only: bool = True,
     min_transactions: int = 0,
 ) -> pd.DataFrame:
-    """
-    Roll the waterfall up to one or more dimensions.
+    """Roll the waterfall up to one or more dimensions, with per-group coverage."""
+    profile = waterfall.profile
+    cols = profile.resolve(dimension)
+    key = profile.key
 
-    Parameters
-    ----------
-    dimension
-        "segment", "customer", ["region", "period"], ... See DIMENSION_ALIASES.
-    certified_only
-        Sum only fully decomposable transactions (default, and recommended).
-        Coverage is reported either way so the exclusion is never invisible.
-    min_transactions
-        Suppress groups thinner than this. They are not deleted -- they are
-        returned with UNAVAILABLE amounts and status "abstained", because a
-        disappearing segment is worse than a flagged one.
+    key_safe = profile.key_safe(cols)
+    frame = waterfall.keys if key_safe else waterfall.facts
 
-    Returns one row per group, with every waterfall step, ratios computed from
-    sums, and per-group coverage.
-    """
-    cols = resolve(dimension)
-    facts = waterfall.facts
-    missing = [c for c in cols if c not in facts.columns]
+    missing = [c for c in cols if c not in frame.columns]
     if missing:
-        raise KeyError(f"Unknown dimension(s) {missing}. Available: {sorted(set(facts.columns) & set(DIMENSIONS) | set(DIMENSION_ALIASES.values()))}")
-
-    scope = facts[facts["certified"]] if certified_only else facts
-
-    # --- sums over the certified scope ------------------------------------
-    agg = scope.groupby(cols, dropna=False).agg(
-        **{s: (s, lambda x: x.sum(min_count=1)) for s in STEPS},
-        n_transactions_certified=("transaction_id", "nunique"),
-        n_lines=("transaction_id", "size"),
-        quantity=("quantity", "sum"),
-    )
-
-    # --- currency safety --------------------------------------------------
-    # A group spanning more than one currency has been summed without an FX
-    # rate, because the graph does not carry one. Count it here; result.py
-    # refuses to publish such a group.
-    if "currency" in facts.columns:
-        agg["n_currencies"] = scope.groupby(cols, dropna=False)["currency"].nunique()
-        agg["currencies"] = scope.groupby(cols, dropna=False)["currency"].apply(
-            lambda s: ",".join(sorted(s.dropna().unique()))
+        raise KeyError(
+            f"Unknown dimension(s) {missing}. Available: "
+            f"{sorted(set(frame.columns) & set(profile.dimension_columns))}"
         )
 
-    # --- coverage: denominators come from the FULL fact table -------------
-    # Using the certified scope for both numerator and denominator would make
-    # coverage always 100%, which is exactly the lie we are trying to avoid.
-    universe = facts.groupby(cols, dropna=False).agg(
-        n_transactions=("transaction_id", "nunique"),
-        n_lines_total=("transaction_id", "size"),
+    reportable = [
+        s.name for s in profile.steps
+        if (key_safe or s.grain == LINE) and s.name in frame.columns
+    ]
+    suppressed = [s for s in profile.step_names if s not in reportable]
+
+    scope = frame[frame["certified"]] if certified_only else frame
+
+    agg_spec: dict[str, tuple] = {s: (s, complete_sum) for s in reportable}
+    agg_spec["n_transactions_certified"] = (key, "nunique")
+    agg_spec["n_lines"] = (key, "size")
+    if profile.quantity_column and profile.quantity_column in frame.columns:
+        agg_spec["quantity"] = (profile.quantity_column, "sum")
+
+    agg = scope.groupby(cols, dropna=False).agg(**agg_spec)
+
+    currency = profile.currency_column
+    if currency and currency in frame.columns:
+        grouped = scope.groupby(cols, dropna=False)[currency]
+        agg["n_currencies"] = grouped.nunique()
+        agg["currencies"] = grouped.apply(lambda s: ",".join(sorted(s.dropna().unique())))
+
+    universe = frame.groupby(cols, dropna=False).agg(
+        n_transactions=(key, "nunique"),
+        n_lines_total=(key, "size"),
     )
     out = universe.join(agg, how="left")
     out["n_transactions_certified"] = out["n_transactions_certified"].fillna(0).astype(int)
@@ -132,96 +76,167 @@ def aggregate(
         out["n_currencies"] = out["n_currencies"].fillna(0).astype(int)
         out["currencies"] = out["currencies"].fillna("")
 
-    # --- ratios from sums, never means of ratios --------------------------
-    out["pocket_margin_pct"] = 100 * out["pocket_margin"] / out["pocket_price"]
-    out["price_realisation_pct"] = 100 * out["pocket_price"] / out["list_value"]
-    out["on_invoice_discount_pct"] = 100 * out["on_invoice_discount"] / out["gross_value"]
-    out["off_invoice_leakage_pct"] = 100 * out["off_invoice_leakage"] / out["gross_value"]
-    out["total_leakage_pct"] = 100 * (out["list_value"] - out["pocket_price"]) / out["list_value"]
+    for step in suppressed:
+        out[step] = np.nan
+    out["unavailable_steps"] = ";".join(suppressed)
+    out["grain_note"] = (
+        ""
+        if not suppressed
+        else GRAIN_NOTE.format(
+            step=", ".join(suppressed),
+            grain=f"{profile.entity.split()[0]} document",
+            by="+".join(cols),
+        )
+    )
 
-    # --- thin groups abstain rather than vanish ---------------------------
+    out = out[[*universe.columns, *profile.step_names, *(
+        c for c in out.columns if c not in {*universe.columns, *profile.step_names}
+    )]]
+
+    price = _price_level(profile)
+    out["pocket_margin_pct"] = ratio(out[profile.closing], out[price])
+    out["price_realisation_pct"] = ratio(out[price], out[profile.opening])
+    for name, num, den in _rate_definitions(profile):
+        if num in out.columns and den in out.columns:
+            out[name] = ratio(out[num], out[den])
+    out["total_leakage_pct"] = ratio(out[profile.opening] - out[price], out[profile.opening])
+
     out["status"] = "complete"
     out.loc[out["n_transactions_certified"] == 0, "status"] = "unavailable"
     if min_transactions:
         thin = out["n_transactions_certified"] < min_transactions
         out.loc[thin & (out["status"] == "complete"), "status"] = "abstained"
-        out.loc[thin, list(STEPS)] = pd.NA
+        out.loc[thin, list(profile.step_names)] = pd.NA
 
-    # --- readable labels ---------------------------------------------------
+    labels = _label_columns(waterfall)
+    source = waterfall.facts
     for col in cols:
-        label = LABEL_FOR.get(col)
-        if label and label in facts.columns:
-            names = facts.groupby(col, dropna=False)[label].first()
-            out.insert(0, label, out.index.get_level_values(col).map(names) if len(cols) > 1 else out.index.map(names))
+        label = labels.get(col)
+        if label and label in source.columns:
+            names = source.groupby(col, dropna=False)[label].first()
+            out.insert(
+                0,
+                label,
+                out.index.get_level_values(col).map(names) if len(cols) > 1 else out.index.map(names),
+            )
 
     return out.reset_index()
 
 
+def _price_level(profile) -> str:
+    """The level margin is measured against."""
+    from .waterfall import _price_level as level
+
+    return level(profile)
+
+
+def _rate_definitions(profile) -> list[tuple[str, str, str]]:
+    """Percentage columns for each deduction, against the level above it."""
+    out = []
+    for i, s in enumerate(profile.steps):
+        if s.name in profile.deductions and i > 0:
+            out.append((f"{s.name}_pct", s.name, profile.steps[i - 1].name))
+    return out
+
+
 def by_all_dimensions(
-    waterfall: Waterfall, dimensions: tuple[str, ...] = DIMENSIONS, **kwargs
+    waterfall: Waterfall, dimensions: tuple[str, ...] | None = None, **kwargs
 ) -> dict[str, pd.DataFrame]:
-    """Every required D2 aggregation in one call. Keys are the dimension names."""
-    return {d: aggregate(waterfall, d, **kwargs) for d in dimensions}
+    """Every required D2 aggregation in one call, keyed by dimension name."""
+    from .waterfall import DIMENSIONS
+
+    dims = dimensions or DIMENSIONS
+    return {d: aggregate(waterfall, d, **kwargs) for d in dims}
 
 
 def leakage_ranking(
     waterfall: Waterfall, dimension: str = "customer", top: int = 10
 ) -> pd.DataFrame:
-    """
-    Where is margin leaking most? The question the module exists to answer.
-
-    Ranked by absolute leaked value, not by percentage: a 40% leak on a small
-    account is interesting, a 12% leak on the largest account is a budget.
-    """
+    """Where margin leaks most, ranked by absolute leaked value rather than by rate."""
+    profile = waterfall.profile
     agg = aggregate(waterfall, dimension)
     agg = agg[agg["status"] == "complete"].copy()
-    agg["leaked_value"] = agg["list_value"] - agg["pocket_price"]
-    cols = [c for c in agg.columns if c in
-            (*resolve(dimension), *LABEL_FOR.values(), "list_value", "pocket_price",
-             "leaked_value", "total_leakage_pct", "off_invoice_leakage",
-             "off_invoice_leakage_pct", "pocket_margin_pct", "n_transactions_certified")]
+    price = _price_level(profile)
+    agg["leaked_value"] = agg[profile.opening] - agg[price]
+
+    labels = set(_label_columns(waterfall).values())
+    keep = {
+        *profile.resolve(dimension), *labels, profile.opening, price, "leaked_value",
+        "total_leakage_pct", "pocket_margin_pct", "n_transactions_certified",
+        *(f"{d}_pct" for d in profile.deductions), *profile.deductions,
+    }
+    cols = [c for c in agg.columns if c in keep]
     return agg.sort_values("leaked_value", ascending=False).head(top)[cols].reset_index(drop=True)
 
 
 def reconciles_with_total(
     waterfall: Waterfall, dimension: str, tolerance: float = 0.01
 ) -> pd.DataFrame:
-    """
-    Self-check: any aggregation must sum back to the grand total.
-
-    Cheap, and it catches the whole class of join-fanout bugs that silently
-    double-count. Run it after every new dimension is added.
-    """
+    """Self-check: an aggregation must sum back to the grand total, step by step."""
+    profile = waterfall.profile
     agg = aggregate(waterfall, dimension)
+    key_safe = profile.key_safe(profile.resolve(dimension))
+
     rows = []
-    for step in STEPS:
+    for step in profile.step_names:
+        grain = profile.step(step).grain
+        can_report = key_safe or grain == LINE
         got = agg[step].sum(min_count=1)
         exp = waterfall.totals[step]
+        if can_report:
+            ok = bool(abs(got - exp) < tolerance) if pd.notna(exp) and pd.notna(got) else False
+        else:
+            ok = bool(agg[step].isna().all())
         rows.append(
             {
                 "step": step,
+                "reportable_at_this_grain": can_report,
                 "grand_total": exp,
                 "sum_of_groups": got,
                 "diff": got - exp,
-                "ok": bool(abs(got - exp) < tolerance) if pd.notna(exp) and pd.notna(got) else False,
+                "ok": ok,
             }
         )
     return pd.DataFrame(rows)
 
 
-def waterfall_bridge(agg_row: pd.Series) -> pd.DataFrame:
-    """
-    Turn one aggregated row into a plottable bridge: label, value, and whether
-    it is a level or a deduction. Keeps chart code out of notebooks.
-    """
-    rows = []
-    for step in STEPS:
-        rows.append(
+def waterfall_bridge(agg_row: pd.Series, waterfall: Waterfall | None = None) -> pd.DataFrame:
+    """Turn one aggregated row into a plottable bridge of levels and deductions."""
+    from ..profiles import get_profile
+
+    profile = waterfall.profile if waterfall is not None else get_profile()
+    return pd.DataFrame(
+        [
             {
-                "step": step,
-                "label": step.replace("_", " ").title(),
-                "value": agg_row.get(step),
-                "kind": "deduction" if step in DEDUCTIONS else "level",
+                "step": s.name,
+                "label": s.display(),
+                "value": agg_row.get(s.name),
+                "kind": s.kind.value,
+                "grain": s.grain,
             }
-        )
-    return pd.DataFrame(rows)
+            for s in profile.steps
+        ]
+    )
+
+
+#: Kept so callers that imported the old lookup keep working. The mapping now
+#: lives on the profile, where a client can change it without editing the engine.
+DIMENSION_ALIASES: dict[str, str] = {}
+LABEL_FOR: dict[str, str] = {}
+
+
+def _refresh_legacy_lookups() -> None:
+    """Populate the back-compat lookups from the default profile."""
+    from ..profiles import get_profile
+
+    profile = get_profile()
+    DIMENSION_ALIASES.update({d.name: d.column for d in profile.dimensions})
+    LABEL_FOR.update({d.column: d.label_column for d in profile.dimensions if d.label_column})
+
+
+_refresh_legacy_lookups()
+
+__all__ = [
+    "aggregate", "by_all_dimensions", "leakage_ranking", "reconciles_with_total",
+    "waterfall_bridge", "resolve", "complete_sum", "KEY", "LINE",
+]

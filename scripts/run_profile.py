@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
-"""
-Run the full data profile and write it to reports/.
-
-    python scripts/run_profile.py
-
-Outputs:
-    reports/profile_<section>.csv   -- one CSV per profile section
-    reports/profile_report.md       -- readable summary (the Week 1 artefact)
-
-Works against whichever backend PRICING_SOURCE selects, so the same command
-will profile the real Neo4j graph the day we get credentials.
-"""
+"""Profile the snapshot and write reports/profile_*.csv and profile_report.md."""
 
 from __future__ import annotations
 
@@ -23,11 +12,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import pandas as pd  # noqa: E402
 
 from pricing import config
-from pricing.quality import profiling  # noqa: E402
 from pricing.graph import get_source  # noqa: E402
+from pricing.quality import profiling  # noqa: E402
 
 
 def main() -> None:
+    """Profile whichever backend PRICING_SOURCE selects, then write and print it."""
     src = get_source()
     print(f"Profiling via '{src.name}' backend ...")
     results = profiling.run_all(src)
@@ -67,7 +57,6 @@ def main() -> None:
 
     (out / "profile_report.md").write_text("\n".join(md), encoding="utf-8")
 
-    # Console summary so the run is useful without opening a file
     pd.set_option("display.width", 140)
     print("\n--- Table shapes ---")
     print(results["table_counts"].to_string(index=False))

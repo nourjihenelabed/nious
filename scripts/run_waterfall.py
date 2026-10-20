@@ -1,24 +1,11 @@
 #!/usr/bin/env python3
-"""
-Run the price waterfall (D2) and its aggregations.
+"""Run the price waterfall (D2) and its aggregations.
 
     python scripts/run_waterfall.py                      # whole book, all dimensions
     python scripts/run_waterfall.py --customer CUS-013   # one customer
     python scripts/run_waterfall.py --by segment         # one dimension, printed
     python scripts/run_waterfall.py --leakage customer   # where is margin leaking?
     python scripts/run_waterfall.py --no-track           # skip MLflow
-
-Writes everything to reports/ and logs the run to MLflow.
-
-WHAT THE WATERFALL IS, IN ONE PARAGRAPH
----------------------------------------
-Start from what the goods would have cost at list price, then subtract every
-deduction, concession and cost in turn -- the negotiated gap below list, the
-discounts printed on the invoice, the off-invoice leakage that never appears on
-it (rebates, freight, payment terms, co-op credits, side letters), and finally
-the cost of the goods themselves. What survives all of that is the pocket
-margin: what the SELLER actually keeps. The point of doing it step by step is
-that each step is a place where money left, and you can name it.
 """
 
 from __future__ import annotations
@@ -28,22 +15,57 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import pandas as pd  # noqa: E402
 
+import _env  # noqa: E402,F401  -- reads --profile/--graph/--out before pricing loads
 from pricing import config  # noqa: E402
 from pricing.engine import aggregation as agg  # noqa: E402
-from pricing.engine import pipeline, waterfall as wf  # noqa: E402
+from pricing.engine import pipeline  # noqa: E402
+from pricing.engine import waterfall as wf
 from pricing.graph import SnapshotRejected, get_source  # noqa: E402
 
 
-def biggest_customer(src) -> str:
-    """Fallback when no --customer is given: the largest account by revenue."""
-    return src.transactions().groupby("customer_id")["gross_amount"].sum().idxmax()
+def write_status(run, out: Path) -> Path:
+    """Write the run's health as JSON, beside its reports."""
+    import json
+
+    rec = run.reconciliation.groupby("dimension")["ok"].all()
+    totals = run.waterfall.totals
+    status = {
+        "ok": bool(run.ok),
+        "profile": run.waterfall.profile.name,
+        "source": run.waterfall.snapshot.get("location", ""),
+        "contract": {
+            "records": len(run.result.waterfalls),
+            "violations": list(run.contract_violations),
+        },
+        "reconciliation": {
+            "dimensions_checked": int(len(rec)),
+            "dimensions_failed": [d for d, ok in rec.items() if not ok],
+        },
+        "validation": {
+            "blocking": [f"{f.check}: {f.detail}" for f in run.validation.blocking],
+            "warnings": [f"{f.check}: {f.detail}" for f in run.validation.warnings],
+        },
+        "book": {
+            "documents": int(totals.get("n_transactions", 0)),
+            "certified": int(totals.get("n_certified", 0)),
+            "lines": int(totals.get("n_lines", 0)),
+            "coverage_pct": float(totals.get("coverage_pct", 0.0)),
+        },
+        "mlflow_run_id": run.mlflow_run_id,
+    }
+    path = out / "pipeline_status.json"
+    path.write_text(json.dumps(status, indent=2), encoding="utf-8")
+    return path
 
 
 def main() -> int:
+    """Parse arguments, run the engine, print the waterfall, save the reports."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    _env.add_common(ap)
     ap.add_argument("--customer", help="customer_id, e.g. CUS-013 (default: whole book)")
     ap.add_argument("--by", help="print one aggregation, e.g. segment / region / product / period")
     ap.add_argument("--leakage", metavar="DIM", help="print the leakage ranking for a dimension")
@@ -57,13 +79,24 @@ def main() -> int:
 
     src = get_source()
 
-    # ---- one customer: a quick look, no full pipeline --------------------
     if args.customer:
         w = wf.for_customer(src, args.customer)
-        cust = src.customers()
-        row = cust[cust["customer_id"] == args.customer]
-        name = row["name"].iloc[0] if not row.empty else "?"
-        seg = row["segment"].iloc[0] if not row.empty else "?"
+        # Which column names a customer, and which one segments it, is the profile's business --
+        # the distributor schema calls them `name` and `segment`, the graph calls them
+        # `legal_name` and `customer_type`.
+        profile = w.profile
+        facts = w.facts
+
+        def field(column: str | None) -> str:
+            """One labelling column for this customer, or "?" where absent."""
+            if not column or column not in facts.columns:
+                return "?"
+            values = facts[column].dropna().unique()
+            return str(values[0]) if len(values) else "?"
+
+        segment = profile.dimension("segment")
+        name = field(profile.dimension("customer").label_column)
+        seg = field(segment.column if segment else None)
 
         print("=" * 78)
         print(f"PRICE WATERFALL  |  {args.customer} - {name} ({seg})")
@@ -83,7 +116,6 @@ def main() -> int:
         print(f"\nSaved: {out / f'waterfall_facts_{args.customer}.csv'}")
         return 0
 
-    # ---- whole book: the full pipeline -----------------------------------
     try:
         run = pipeline.run(src, min_transactions=args.min_transactions, track=not args.no_track)
     except SnapshotRejected as exc:
@@ -98,6 +130,9 @@ def main() -> int:
     print("\n--- Snapshot validation ---")
     print(run.validation)
 
+    print("\n--- Step availability: what the book can and cannot report ---")
+    print(run.waterfall.availability().to_string(index=False))
+
     print("\n--- Data-quality flags ---")
     print(run.waterfall.flags.to_string(index=False))
 
@@ -108,7 +143,7 @@ def main() -> int:
 
     if args.by:
         a = run.aggregations.get(args.by)
-        if a is None:  # a dimension outside DEFAULT_GRAINS -- compute it on demand
+        if a is None:
             a = agg.aggregate(run.waterfall, args.by, min_transactions=args.min_transactions)
         print(f"\n--- Waterfall by {args.by} ---")
         cols = [c for c in a.columns if c in
@@ -129,9 +164,12 @@ def main() -> int:
         print(f"\nResult contract: {len(run.result.waterfalls)} records, 0 violations.")
 
     out = run.save()
+    write_status(run, out)
     print(f"Saved to {out}")
     if run.mlflow_run_id:
         print(f"MLflow run: {run.mlflow_run_id}")
+
+    print(f"\nPipeline: {'PASS' if run.ok else 'FAIL'}")
     return 0 if run.ok else 1
 
 

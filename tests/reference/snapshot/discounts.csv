@@ -1,0 +1,5 @@
+discount_id,type,category,rate,amount,valid_from,valid_to,trigger
+DSC-ON-A,on-invoice,Volume tier,10.0,,2025-01-01,2026-12-31,Order quantity threshold
+DSC-ON-B,on-invoice,Contract price,5.0,,2025-01-01,2026-12-31,Framework agreement
+DSC-OFF-A,off-invoice,Annual volume rebate,4.0,,2025-01-01,2026-12-31,Annual spend tier
+DSC-OFF-B,off-invoice,Freight allowance,2.0,,2025-01-01,2026-12-31,Delivered pricing

@@ -1,28 +1,4 @@
-"""
-Graph-access layer (D1, early draft).
-
-The rest of the engine only ever talks to a `GraphSource`. Two implementations:
-
-  CsvGraphSource   -- ACTIVE NOW. Reads the synthetic CSV snapshot. This is the
-                      placeholder while we wait for Neo4j credentials.
-  Neo4jGraphSource -- WRITTEN BUT NOT YET EXERCISED. Reads the real read-only
-                      graph via the official driver, using the queries in
-                      cypher.py. Switch to it by setting PRICING_SOURCE=neo4j
-                      and filling in NEO4J_* in .env -- no other code changes.
-
-Both return pandas DataFrames with *identical* column names and dtypes, which
-is the whole point: Week 3's waterfall engine will not know or care which one
-it is reading from.
-
-Design notes
-------------
-* Read-only by contract. Nothing here writes to the graph.
-* Degrade gracefully. Missing optional fields come back as NaN, never as 0.
-  Silently zeroing a missing discount would understate leakage -- exactly the
-  failure mode the acceptance criteria call out.
-* Snapshot metadata. `snapshot_info()` records where the data came from and a
-  content hash, so a result can be traced back to the exact input (Brief 7.4).
-"""
+"""Graph-access layer (D1): one Source interface, four backends behind it."""
 
 from __future__ import annotations
 
@@ -37,96 +13,99 @@ import pandas as pd
 from .. import config
 from . import cypher
 
-# Columns we coerce to a specific dtype regardless of backend, so CSV and Neo4j
-# cannot drift. Anything not listed keeps its natural inferred type.
-_NUMERIC = {
-    "transactions": ["gross_amount", "net_amount", "quantity", "unit_price"],
-    "transaction_lines": ["quantity", "unit_price", "line_total"],
-    "transaction_discounts": ["discount_amount_applied"],
-    "discounts": ["rate", "amount"],
-    "customers": ["tenure_years"],
-    "products": ["list_price", "unit_cost"],
-    "channels": ["cost_to_serve", "commission_rate"],
-    "regions": [],
-}
-_DATES = {"transactions": ["date"], "discounts": ["valid_from", "valid_to"]}
 
+def _normalise(name: str, df: pd.DataFrame, profile=None) -> pd.DataFrame:
+    """Apply the profile's semantic types, without inventing values."""
+    if profile is None:
+        from ..profiles import get_profile
 
-def _normalise(name: str, df: pd.DataFrame) -> pd.DataFrame:
-    """Apply the semantic types from Brief section 5.3, without inventing values."""
-    for col in _NUMERIC.get(name, []):
+        profile = get_profile()
+    for col in profile.numeric_columns(name):
         if col in df.columns:
-            # errors="coerce" turns unparseable junk into NaN rather than crashing;
-            # the profiler then reports it as a data-quality finding.
             df[col] = pd.to_numeric(df[col], errors="coerce")
-    for col in _DATES.get(name, []):
+    for col in profile.date_columns(name):
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
     return df
 
 
-class GraphSource(ABC):
+class Source(ABC):
     """The one interface the pricing engine is allowed to depend on."""
 
     name: str = "abstract"
 
     @abstractmethod
     def table(self, name: str) -> pd.DataFrame:
-        """Return one logical table by name (see config.CSV_FILES for the list)."""
+        """Return one logical table by name."""
+
+    def table_names(self) -> tuple[str, ...]:
+        """The logical tables this source can serve."""
+        return tuple(config.CSV_FILES)
 
     def tables(self) -> dict[str, pd.DataFrame]:
-        return {n: self.table(n) for n in config.CSV_FILES}
+        """Every logical table, keyed by name."""
+        return {n: self.table(n) for n in self.table_names()}
 
-    # -- convenience accessors, so callers read like domain language ---------
-    def transactions(self) -> pd.DataFrame:
-        return self.table("transactions")
-
-    def transaction_lines(self) -> pd.DataFrame:
-        return self.table("transaction_lines")
-
-    def transaction_discounts(self) -> pd.DataFrame:
-        return self.table("transaction_discounts")
-
-    def discounts(self) -> pd.DataFrame:
-        return self.table("discounts")
-
-    def customers(self) -> pd.DataFrame:
-        return self.table("customers")
-
-    def products(self) -> pd.DataFrame:
-        return self.table("products")
-
-    def channels(self) -> pd.DataFrame:
-        return self.table("channels")
-
-    def regions(self) -> pd.DataFrame:
-        return self.table("regions")
-
-    def customer_transactions(self, customer_id: str) -> pd.DataFrame:
-        """All transactions for one customer. Overridden by Neo4j to push down the filter."""
-        txn = self.transactions()
-        return txn[txn["customer_id"] == customer_id].copy()
+    def raw_table(self, name: str) -> pd.DataFrame:
+        """One logical table *before* semantic types are applied."""
+        return self.table(name)
 
     @abstractmethod
     def snapshot_info(self) -> dict:
         """Provenance of this read: backend, location, timestamp, content hash."""
 
 
-# ==========================================================================
-# CSV backend -- ACTIVE
-# ==========================================================================
-class CsvGraphSource(GraphSource):
-    """
-    Reads the CSV snapshot produced either by NIOUS or by our own
-    scripts/export_neo4j_to_csv.py.
+class GraphSource(Source):
+    """A `Source` over the AXIOM graph's own entity names."""
 
-    Tables are cached after first read: the snapshot is immutable within a run,
-    which is what makes a run reproducible.
-    """
+    def transactions(self) -> pd.DataFrame:
+        """Transaction headers."""
+        return self.table("transactions")
+
+    def transaction_lines(self) -> pd.DataFrame:
+        """CONTAINS edges: one row per transaction line."""
+        return self.table("transaction_lines")
+
+    def transaction_discounts(self) -> pd.DataFrame:
+        """DISCOUNTED_BY edges, with the amount applied."""
+        return self.table("transaction_discounts")
+
+    def discounts(self) -> pd.DataFrame:
+        """Discount nodes, including the on/off-invoice type."""
+        return self.table("discounts")
+
+    def customers(self) -> pd.DataFrame:
+        """Customer nodes, with segment and region."""
+        return self.table("customers")
+
+    def products(self) -> pd.DataFrame:
+        """Product nodes, with list price and unit cost."""
+        return self.table("products")
+
+    def channels(self) -> pd.DataFrame:
+        """Channel nodes."""
+        return self.table("channels")
+
+    def regions(self) -> pd.DataFrame:
+        """Region nodes, including the currency."""
+        return self.table("regions")
+
+    def customer_transactions(self, customer_id: str) -> pd.DataFrame:
+        """All transactions for one customer."""
+        txn = self.transactions()
+        return txn[txn["customer_id"] == customer_id].copy()
+
+
+class CsvGraphSource(GraphSource):
+    """Reads a directory of CSVs, caching each table for the life of the run."""
 
     name = "csv"
 
-    def __init__(self, data_dir: Path | str | None = None):
+    def __init__(self, data_dir: Path | str | None = None, profile=None):
+        """Point at a snapshot directory, failing loudly if it is not there."""
+        from ..profiles import get_profile
+
+        self.profile = profile or get_profile()
         self.data_dir = Path(data_dir or config.CSV_DIR)
         if not self.data_dir.exists():
             raise FileNotFoundError(
@@ -135,61 +114,67 @@ class CsvGraphSource(GraphSource):
             )
         self._cache: dict[str, pd.DataFrame] = {}
 
+    def table_names(self) -> tuple[str, ...]:
+        """The logical tables this profile expects to find here."""
+        return tuple(self.profile.tables)
+
+    def path_for(self, name: str) -> Path:
+        """Where one logical table is expected on disk."""
+        return self.data_dir / self.profile.file_for(name)
+
+    def raw_table(self, name: str) -> pd.DataFrame:
+        """The file exactly as written, every column as text."""
+        path = self.path_for(name)
+        if not path.exists():
+            raise FileNotFoundError(f"Missing snapshot file: {path}")
+        return pd.read_csv(path, dtype=str, keep_default_na=False)
+
     def table(self, name: str) -> pd.DataFrame:
-        if name not in config.CSV_FILES:
-            raise KeyError(f"Unknown table {name!r}. Known: {sorted(config.CSV_FILES)}")
+        """One logical table, read once and normalised."""
+        if name not in self.profile.tables:
+            raise KeyError(
+                f"Unknown table {name!r} for profile {self.profile.name!r}. "
+                f"Known: {sorted(self.profile.tables)}"
+            )
         if name not in self._cache:
-            path = self.data_dir / config.CSV_FILES[name]
+            path = self.path_for(name)
             if not path.exists():
-                raise FileNotFoundError(f"Missing snapshot file: {path}")
-            # keep_default_na=True so empty cells become NaN, NOT 0 or "".
-            self._cache[name] = _normalise(name, pd.read_csv(path))
+                raise FileNotFoundError(
+                    f"Missing snapshot file: {path}\n"
+                    f"Profile {self.profile.name!r} expects it for the {name!r} table."
+                )
+            self._cache[name] = _normalise(name, pd.read_csv(path), self.profile)
         return self._cache[name].copy()
 
     def snapshot_info(self) -> dict:
+        """Backend, location, read time, and a sha256 over the snapshot bytes."""
         h = hashlib.sha256()
-        for fname in sorted(config.CSV_FILES.values()):
-            p = self.data_dir / fname
+        for name in sorted(self.profile.tables):
+            p = self.path_for(name)
             if p.exists():
                 h.update(p.read_bytes())
         return {
             "backend": "csv",
             "location": str(self.data_dir),
+            "profile": self.profile.name,
             "read_at": datetime.now(timezone.utc).isoformat(),
             "content_sha256": h.hexdigest(),
         }
 
 
-# ==========================================================================
-# Neo4j backend -- READY, NOT YET RUN
-# ==========================================================================
 class Neo4jGraphSource(GraphSource):
-    """
-    Reads the live read-only AXIOM graph.
-
-    Not exercised yet -- we have no credentials as of Week 1. The code is here
-    so that the day the URI arrives, the only change is in .env:
-
-        PRICING_SOURCE=neo4j
-        NEO4J_URI=bolt://<host>:7687
-        NEO4J_USER=...
-        NEO4J_PASSWORD=...
-
-    Requires:  pip install neo4j
-
-    Safety: the driver session is opened in READ access mode, so even a coding
-    mistake cannot write to the client graph.
-    """
+    """Reads the live AXIOM graph over Bolt in READ access mode. Not yet exercised."""
 
     name = "neo4j"
 
     def __init__(self, settings: config.Neo4jSettings | None = None):
+        """Open a driver, refusing to start without credentials."""
         try:
-            from neo4j import GraphDatabase  # imported lazily: optional dependency
+            from neo4j import GraphDatabase
         except ImportError as exc:  # pragma: no cover - depends on environment
             raise RuntimeError(
                 "The Neo4j backend needs the driver: pip install neo4j\n"
-                "(Week 1 runs on PRICING_SOURCE=csv and does not need it.)"
+                "(The CSV backend does not need it.)"
             ) from exc
 
         self.settings = settings or config.NEO4J
@@ -202,7 +187,6 @@ class Neo4jGraphSource(GraphSource):
         )
         self._cache: dict[str, pd.DataFrame] = {}
 
-    # -- low-level -----------------------------------------------------------
     def run(self, query: str, **params) -> pd.DataFrame:
         """Execute a read-only Cypher query and return a DataFrame."""
         from neo4j import READ_ACCESS
@@ -213,22 +197,27 @@ class Neo4jGraphSource(GraphSource):
             result = session.run(query, **params)
             return pd.DataFrame([dict(r) for r in result])
 
-    # -- GraphSource ---------------------------------------------------------
     def table(self, name: str) -> pd.DataFrame:
+        """One logical table, from its query in cypher.py."""
         if name not in cypher.QUERIES:
             raise KeyError(f"Unknown table {name!r}")
         if name not in self._cache:
             self._cache[name] = _normalise(name, self.run(cypher.QUERIES[name]))
         return self._cache[name].copy()
 
+    def table_names(self) -> tuple[str, ...]:
+        """The logical tables the Cypher layer can serve."""
+        return tuple(cypher.QUERIES)
+
     def customer_transactions(self, customer_id: str) -> pd.DataFrame:
-        # Push the filter into Cypher rather than pulling the whole graph.
+        """All transactions for one customer, filtered inside Cypher."""
         return _normalise(
             "transactions",
             self.run(cypher.CUSTOMER_TRANSACTIONS, customer_id=customer_id),
         )
 
     def snapshot_info(self) -> dict:
+        """Backend, URI, read time, and node counts as a coarse fingerprint."""
         counts = self.run(cypher.NODE_COUNTS)
         return {
             "backend": "neo4j",
@@ -239,22 +228,36 @@ class Neo4jGraphSource(GraphSource):
         }
 
     def close(self) -> None:
+        """Release the driver's connection pool."""
         self._driver.close()
 
 
-# ==========================================================================
-# Factory
-# ==========================================================================
-def get_source(source: str | None = None, **kwargs) -> GraphSource:
-    """
-    Return the configured backend.
+def get_source(source: str | None = None, **kwargs) -> Source:
+    """Return the backend named by PRICING_SOURCE, or the one asked for."""
+    if source is None and not config.SOURCE_IS_EXPLICIT:
+        from ..profiles import get_profile
 
-    >>> src = get_source()          # honours PRICING_SOURCE, defaults to csv
-    >>> src.transactions().shape
-    """
+        profile = kwargs.get("profile") or get_profile()
+        source = getattr(profile, "default_source", None)
+
     source = (source or config.SOURCE).lower()
     if source == "csv":
         return CsvGraphSource(**kwargs)
+    if source in ("graph_json", "json"):
+        from .json_source import GraphJsonSource
+
+        return GraphJsonSource(**kwargs)
     if source == "neo4j":
         return Neo4jGraphSource(**kwargs)
-    raise ValueError(f"Unknown PRICING_SOURCE={source!r}. Use 'csv' or 'neo4j'.")
+    if source == "workbook":
+        from ..mapping.workbook import WorkbookSource
+        from ..profiles import get_profile
+
+        kwargs.setdefault("workbook", config.WORKBOOK)
+        kwargs.setdefault("mapping", config.SOURCE_MAPPING)
+        kwargs.setdefault("tables", get_profile().tables)
+        return WorkbookSource(**kwargs)
+    raise ValueError(
+        f"Unknown PRICING_SOURCE={source!r}. "
+        "Use 'graph_json', 'csv', 'neo4j' or 'workbook'."
+    )

@@ -1,58 +1,32 @@
-"""
-The engine -> narrative result contract (D8, draft v0.2).
-
-THIS FILE IS THE BOUNDARY BETWEEN TRACK A AND TRACK B.
-
-Track A (this codebase) computes numbers and emits the objects defined here.
-Track B consumes them, retrieves supporting evidence from the graph, and writes
-a cited narrative. The rule from the Brief (section 7.3):
-
-    The narrative layer explains only numbers the engine computed.
-    It never invents or recalculates figures.
-
-Everything in this file is designed to make that rule enforceable rather than
-merely stated:
-
-1. `evidence_ids` on every record. Track B cites *these* records and no others.
-   A result that cannot name its sources is not shippable.
-2. `Confidence` is a value, not an adjective. It carries a score, a band, and
-   the reasons behind it, so the narrative can say WHY confidence is low.
-3. `status` distinguishes COMPLETE from PARTIAL from UNAVAILABLE. A field that
-   is None because data was missing is never confusable with a field that is
-   legitimately zero.
-4. `Provenance` on the envelope. Every result names the snapshot hash and code
-   version it came from, so any number can be regenerated and audited.
-
-STATUS: draft. Agreed in principle with Mohamed in Week 2, FROZEN in Week 7
-(onboarding plan section 8). Additive changes only until then; any breaking
-change needs both tracks to sign off and a bump of CONTRACT_VERSION.
-"""
+"""The engine -> narrative result contract (D8): the Track A / Track B boundary."""
 
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import asdict, dataclass, field
 from datetime import date as Date
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
+from ..config import CONFIDENCE_HIGH, CONFIDENCE_MEDIUM
+
 CONTRACT_VERSION = "0.2.0-draft"
 
 
-# ==========================================================================
-# Shared value types
-# ==========================================================================
 class ResultStatus(str, Enum):
-    """Why a number is (or is not) present. Never guess from a null."""
+    """Why a number is, or is not, present. Never guess from a null."""
 
-    COMPLETE = "complete"        # every input present; number is certified
-    PARTIAL = "partial"          # computed, but some inputs missing -> use with care
-    UNAVAILABLE = "unavailable"  # cannot be computed; do NOT substitute zero
-    ABSTAINED = "abstained"      # computable, but evidence too thin to publish
+    COMPLETE = "complete"
+    PARTIAL = "partial"
+    UNAVAILABLE = "unavailable"
+    ABSTAINED = "abstained"
 
 
 class ConfidenceBand(str, Enum):
+    """Coarse confidence label carried alongside the score."""
+
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
@@ -61,23 +35,19 @@ class ConfidenceBand(str, Enum):
 
 @dataclass(frozen=True)
 class Confidence:
-    """
-    Quantified confidence, plus the reasons for it.
+    """Quantified confidence, plus the reasons Track B must be able to state."""
 
-    The reasons matter as much as the score: Track B's narrative is required to
-    explain low confidence, and it can only do that if we tell it why.
-    """
-
-    score: float                      # 0.0 - 1.0
+    score: float
     band: ConfidenceBand
-    reasons: tuple[str, ...] = ()     # e.g. "3 of 12 lines missing unit_cost"
+    reasons: tuple[str, ...] = ()
 
     @staticmethod
-    def from_score(score: float, reasons: tuple[str, ...] = ()) -> "Confidence":
+    def from_score(score: float, reasons: tuple[str, ...] = ()) -> Confidence:
+        """Clamp a score to 0-1 and assign its band."""
         score = max(0.0, min(1.0, float(score)))
-        if score >= 0.80:
+        if score >= CONFIDENCE_HIGH:
             band = ConfidenceBand.HIGH
-        elif score >= 0.50:
+        elif score >= CONFIDENCE_MEDIUM:
             band = ConfidenceBand.MEDIUM
         elif score > 0.0:
             band = ConfidenceBand.LOW
@@ -88,13 +58,7 @@ class Confidence:
 
 @dataclass(frozen=True)
 class Money:
-    """
-    A monetary amount that can be absent for a stated reason.
-
-    Using this instead of a bare float is the type-level version of the rule
-    'missing is not zero': you cannot read `.amount` without also seeing
-    `.status`.
-    """
+    """A monetary amount that can be absent for a stated reason."""
 
     amount: float | None
     currency: str = "EUR"
@@ -102,22 +66,18 @@ class Money:
     note: str | None = None
 
     @staticmethod
-    def unavailable(reason: str, currency: str = "EUR") -> "Money":
+    def unavailable(reason: str, currency: str = "EUR") -> Money:
+        """An amount that could not be computed, and why."""
         return Money(None, currency, ResultStatus.UNAVAILABLE, reason)
 
-    def __bool__(self) -> bool:  # guards against `if money:` meaning `if amount`
+    def __bool__(self) -> bool:
+        """Truthiness means 'has an amount', so `if money:` cannot mean `if amount:`."""
         return self.amount is not None
 
 
 @dataclass(frozen=True)
 class Evidence:
-    """
-    Pointer to the graph records a number was computed from.
-
-    Track B resolves these back to nodes/edges to build citations. Without this,
-    a narrative cannot be grounded, and an ungrounded narrative is exactly the
-    failure mode the Brief forbids.
-    """
+    """Pointers to the graph records a number was computed from."""
 
     transaction_ids: tuple[str, ...] = ()
     customer_ids: tuple[str, ...] = ()
@@ -125,26 +85,19 @@ class Evidence:
     discount_ids: tuple[str, ...] = ()
 
     def count(self) -> int:
+        """How many transactions back this result."""
         return len(self.transaction_ids)
 
     def is_empty(self) -> bool:
+        """True when the record cites nothing at all."""
         return not any(
             (self.transaction_ids, self.customer_ids, self.product_ids, self.discount_ids)
         )
 
 
-# ==========================================================================
-# Result records (Brief section 6)
-# ==========================================================================
 @dataclass(frozen=True)
 class WaterfallRecord:
-    """
-    One price waterfall, at whatever grain it was computed
-    (transaction, customer, segment, ...).
-
-    `grain` and `key` say what this row IS, so a narrative never has to infer it
-    from context: grain="segment", key={"segment": "Enterprise"}.
-    """
+    """One price waterfall at whatever grain it was computed."""
 
     grain: str
     key: dict[str, Any]
@@ -166,12 +119,12 @@ class WaterfallRecord:
     confidence: Confidence
     evidence: Evidence
 
-    # How much of the underlying population this row actually covers.
     n_transactions: int = 0
     n_certified: int = 0
 
     @property
     def coverage_pct(self) -> float | None:
+        """Share of this group's transactions that were fully decomposable."""
         if not self.n_transactions:
             return None
         return round(100.0 * self.n_certified / self.n_transactions, 2)
@@ -195,11 +148,14 @@ class SegmentAssignment:
 
 @dataclass(frozen=True)
 class PriceRange:
+    """A low/mid/high price band, ordered by construction."""
+
     low: float
     mid: float
     high: float
 
     def __post_init__(self) -> None:
+        """Reject an unordered band at construction time."""
         if not (self.low <= self.mid <= self.high):
             raise ValueError(f"price range not ordered: {self.low}/{self.mid}/{self.high}")
 
@@ -217,27 +173,24 @@ class PriceRecommendation:
     status: ResultStatus
     confidence: Confidence
     evidence: Evidence
-    constraints_applied: tuple[str, ...] = ()   # "floor=cost*1.05", "ceiling=P90 corridor"
+    constraints_applied: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class ElasticityEstimate:
     """Elasticity with mandatory uncertainty. (D5, Week 5.)"""
 
-    scope: dict[str, Any]                # e.g. {"segment": "SMB", "category": "Drives"}
-    beta: float | None                   # the elasticity itself
+    scope: dict[str, Any]
+    beta: float | None
     credible_interval: tuple[float, float] | None
     n_observations: int
     shrunk_toward_prior: bool
-    fit_for_optimisation: bool           # False if interval crosses 0 or sign implausible
+    fit_for_optimisation: bool
     status: ResultStatus
     confidence: Confidence
     evidence: Evidence
 
 
-# ==========================================================================
-# Envelope
-# ==========================================================================
 @dataclass(frozen=True)
 class Provenance:
     """Where a result came from. Without this a result is not auditable."""
@@ -246,20 +199,14 @@ class Provenance:
     snapshot_location: str
     snapshot_hash: str | None
     contract_version: str = CONTRACT_VERSION
-    engine_version: str = "0.2.0"
+    engine_version: str = "0.4.0"
     computed_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     mlflow_run_id: str | None = None
 
 
 @dataclass(frozen=True)
 class EngineResult:
-    """
-    The single object Track B receives. One run of the engine -> one of these.
-
-    Deliberately a container of typed records rather than a free-form dict:
-    Track B should be able to write `result.waterfalls[0].pocket_price.amount`
-    and get a compile-time-ish guarantee, not fish through JSON keys.
-    """
+    """The single object Track B receives: one engine run, typed and provenanced."""
 
     provenance: Provenance
     waterfalls: tuple[WaterfallRecord, ...] = ()
@@ -269,19 +216,22 @@ class EngineResult:
     data_quality_flags: tuple[dict[str, Any], ...] = ()
     period: tuple[Date | None, Date | None] = (None, None)
 
-    # -- serialisation -----------------------------------------------------
     def to_dict(self) -> dict:
+        """The result as plain nested dicts."""
         return asdict(self, dict_factory=_dict_factory)
 
     def to_json(self, indent: int = 2) -> str:
-        return json.dumps(self.to_dict(), indent=indent, default=_json_default)
+        """The result as JSON, refusing to emit NaN or Infinity."""
+        return json.dumps(self.to_dict(), indent=indent, default=_json_default, allow_nan=False)
 
 
 def _dict_factory(items):
-    return {k: v for k, v in items}
+    """dataclasses.asdict hook, kept explicit for future field filtering."""
+    return dict(items)
 
 
 def _json_default(o):
+    """Serialise the non-JSON types this contract uses."""
     if isinstance(o, Enum):
         return o.value
     if isinstance(o, (datetime, Date)):
@@ -289,17 +239,8 @@ def _json_default(o):
     raise TypeError(f"not JSON serialisable: {type(o)}")
 
 
-# ==========================================================================
-# Contract self-check
-# ==========================================================================
 def validate(result: EngineResult) -> list[str]:
-    """
-    Check a result against the rules Track B relies on. Returns a list of
-    violations; empty list means the result is safe to hand over.
-
-    Run this before emitting anything. It is cheap, and it catches the class of
-    bug that would otherwise surface as a confidently-worded wrong narrative.
-    """
+    """Check a result against the rules Track B relies on; empty list means safe."""
     problems: list[str] = []
 
     if not result.provenance.snapshot_hash and result.provenance.snapshot_backend == "csv":
@@ -307,19 +248,33 @@ def validate(result: EngineResult) -> list[str]:
 
     for i, w in enumerate(result.waterfalls):
         loc = f"waterfalls[{i}] ({w.grain} {w.key})"
+        for name, money in (
+            ("list_value", w.list_value), ("negotiated_off_list", w.negotiated_off_list),
+            ("gross_value", w.gross_value), ("on_invoice_discount", w.on_invoice_discount),
+            ("invoice_price", w.invoice_price), ("off_invoice_leakage", w.off_invoice_leakage),
+            ("pocket_price", w.pocket_price), ("cogs", w.cogs), ("pocket_margin", w.pocket_margin),
+        ):
+            if money.amount is not None and not math.isfinite(money.amount):
+                problems.append(f"{loc}: {name} is {money.amount}, not a finite number")
+        for name, pct in (
+            ("pocket_margin_pct", w.pocket_margin_pct),
+            ("price_realisation_pct", w.price_realisation_pct),
+        ):
+            if pct is not None and not math.isfinite(pct):
+                problems.append(f"{loc}: {name} is {pct}, not a finite number")
         if w.status is ResultStatus.COMPLETE and w.evidence.is_empty():
             problems.append(f"{loc}: COMPLETE but cites no evidence")
         if w.status is ResultStatus.COMPLETE and w.confidence.band is ConfidenceBand.NONE:
             problems.append(f"{loc}: COMPLETE with zero confidence")
         if w.confidence.band in (ConfidenceBand.LOW, ConfidenceBand.NONE) and not w.confidence.reasons:
             problems.append(f"{loc}: low confidence with no reason given")
-        # arithmetic self-consistency, where all steps are present
-        if all(m.amount is not None for m in (w.gross_value, w.on_invoice_discount, w.invoice_price)):
-            if abs((w.gross_value.amount - w.on_invoice_discount.amount) - w.invoice_price.amount) > 0.01:
-                problems.append(f"{loc}: invoice_price does not reconcile")
-        if all(m.amount is not None for m in (w.invoice_price, w.off_invoice_leakage, w.pocket_price)):
-            if abs((w.invoice_price.amount - w.off_invoice_leakage.amount) - w.pocket_price.amount) > 0.01:
-                problems.append(f"{loc}: pocket_price does not reconcile")
+        for name, start, step, end in (
+            ("invoice_price", w.gross_value, w.on_invoice_discount, w.invoice_price),
+            ("pocket_price", w.invoice_price, w.off_invoice_leakage, w.pocket_price),
+        ):
+            known = all(m.amount is not None for m in (start, step, end))
+            if known and abs(start.amount - step.amount - end.amount) > 0.01:
+                problems.append(f"{loc}: {name} does not reconcile")
 
     for i, r in enumerate(result.recommendations):
         if r.status is ResultStatus.COMPLETE and r.price_range is None:

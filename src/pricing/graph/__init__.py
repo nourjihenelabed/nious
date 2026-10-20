@@ -1,15 +1,7 @@
-"""
-Graph-access layer (D1).
+"""Graph-access layer (D1): read-only reads plus the refuse-to-run entry gate."""
 
-Read-only access to the AXIOM knowledge graph, plus the entry-point gate that
-decides whether a snapshot is fit to compute on at all.
-
-    source.py      GraphSource: CsvGraphSource (active) | Neo4jGraphSource (ready)
-    cypher.py      every query, read-only by construction
-    validation.py  refuse-to-run gate (Brief 7.4)
-"""
-
-from .source import CsvGraphSource, GraphSource, Neo4jGraphSource, get_source
+from .json_source import GraphJsonSource, NotAGraphExport
+from .source import CsvGraphSource, GraphSource, Neo4jGraphSource, Source, get_source
 from .validation import (
     Finding,
     Severity,
@@ -20,7 +12,8 @@ from .validation import (
 )
 
 __all__ = [
-    "GraphSource", "CsvGraphSource", "Neo4jGraphSource", "get_source",
+    "Source", "GraphSource", "CsvGraphSource", "GraphJsonSource", "Neo4jGraphSource",
+    "get_source", "NotAGraphExport",
     "validate", "require_valid", "ValidationReport", "Finding", "Severity",
     "SnapshotRejected",
 ]

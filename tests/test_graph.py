@@ -1,13 +1,4 @@
-"""
-Graph-access layer tests (D1).
-
-Covers the read-only guarantee, structural integrity of the snapshot, the
-entry-point validation gate, and the data-contract observations we are relying
-on. Waterfall maths lives in test_engine.py; the result contract in
-test_contract.py.
-
-Run:  pytest -q
-"""
+"""Graph-access tests (D1): read-only guarantee, integrity, and the entry gate."""
 
 from __future__ import annotations
 
@@ -25,16 +16,13 @@ from pricing.quality import profiling  # noqa: E402
 
 @pytest.fixture(scope="module")
 def src() -> CsvGraphSource:
+    """The synthetic snapshot the module runs against."""
     return CsvGraphSource()
 
 
-# --------------------------------------------------------------------------
-# Read-only guarantee
-# --------------------------------------------------------------------------
 def test_no_write_clauses_in_cypher():
     """The graph is read-only by contract. Prove it mechanically, not by promise."""
     text = Path(cypher.__file__).read_text(encoding="utf-8").upper()
-    # the module docstring names the forbidden clauses on purpose; skip it
     body = text.split('"""', 2)[-1]
     for clause in ("CREATE ", "MERGE ", "DELETE ", " SET ", "DETACH", "DROP "):
         assert clause not in body, f"write clause {clause!r} found in cypher.py"
@@ -47,10 +35,8 @@ def test_every_table_has_a_query():
     assert set(cypher.QUERIES) == set(config.CSV_FILES)
 
 
-# --------------------------------------------------------------------------
-# Structural integrity
-# --------------------------------------------------------------------------
 def test_all_tables_load(src):
+    """All eight tables read, and none is empty."""
     tables = src.tables()
     assert len(tables) == 8
     for name, df in tables.items():
@@ -58,13 +44,14 @@ def test_all_tables_load(src):
 
 
 def test_no_dangling_edges(src):
+    """Every foreign key resolves."""
     ri = profiling.referential_integrity(src)
     bad = ri[~ri["ok"]]
     assert bad.empty, f"unresolved references:\n{bad}"
 
 
 def test_semantic_types(src):
-    """Brief 5.3: money positive, quantities non-negative, no implausible dates."""
+    """Money positive, quantities non-negative, no implausible dates."""
     num = profiling.numeric_profile(src)
     money = num[num["column"].isin(
         ["list_price", "unit_cost", "unit_price", "line_total", "gross_amount"]
@@ -84,11 +71,8 @@ def test_snapshot_is_reproducible(src):
     )
 
 
-# --------------------------------------------------------------------------
-# The entry-point gate (Brief 7.4)
-# --------------------------------------------------------------------------
 def test_snapshot_passes_validation(src):
-    """The current snapshot is degraded but structurally sound -- it must run."""
+    """The current snapshot is degraded but structurally sound, so it must run."""
     report = validation.validate(src)
     assert report.ok, f"unexpected blocking findings:\n{report}"
 
@@ -103,13 +87,12 @@ def test_validation_reports_completeness_as_warnings(src):
 
 
 def test_validation_blocks_a_broken_snapshot(src, tmp_path):
-    """A dangling reference must stop the run, not be quietly tolerated."""
+    """A dangling customer reference must stop the run."""
     from pricing import config
 
     for fname in config.CSV_FILES.values():
         (tmp_path / fname).write_bytes((Path(src.data_dir) / fname).read_bytes())
 
-    # point a transaction at a customer that does not exist
     txn = pd.read_csv(tmp_path / "transactions.csv")
     txn.loc[0, "customer_id"] = "CUS-DOES-NOT-EXIST"
     txn.to_csv(tmp_path / "transactions.csv", index=False)
@@ -123,15 +106,8 @@ def test_validation_blocks_a_broken_snapshot(src, tmp_path):
         validation.require_valid(broken)
 
 
-# --------------------------------------------------------------------------
-# Data-contract observations (documented in docs/WEEK1_DATA_WRITEUP.md)
-# --------------------------------------------------------------------------
 def test_net_amount_semantics_are_as_observed(src):
-    """
-    In this snapshot net_amount == gross_amount - OFF-invoice discounts, which
-    is NOT the textbook meaning of 'net'. Pinned so we notice immediately if the
-    real graph behaves differently.
-    """
+    """net_amount nets OFF-invoice discounts here, not on-invoice. Pinned deliberately."""
     rec = profiling.amount_reconciliation(src).set_index("hypothesis")
     assert rec.loc["H1: gross == sum(line_total)", "holds"]
     assert rec.loc["H4: net == gross - off-invoice", "holds"]

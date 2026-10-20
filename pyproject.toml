@@ -1,0 +1,176 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "axiom-pricing"
+version = "0.4.0"
+description = "Pricing engine for the AXIOM knowledge graph: waterfall, segmentation, elasticity and constrained price optimisation, with evidence and confidence attached to every number."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary — NIOUS GmbH" }
+authors = [{ name = "Nourjihen Elabed" }]
+keywords = ["pricing", "knowledge-graph", "b2b", "mlops", "governance"]
+
+# The engine itself needs almost nothing. Everything optional lives in the
+# extras below, so a host project installs only the surface it actually uses.
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+graph  = ["neo4j>=5.20"]
+mlops  = ["mlflow>=2.14", "dvc>=3.50", "python-dotenv>=1.0"]
+models = ["scikit-learn>=1.5", "skops>=0.10", "statsmodels>=0.14", "pymc>=5.16", "arviz>=0.18"]
+report = ["tabulate>=0.9", "matplotlib>=3.8", "seaborn>=0.13"]
+dev    = ["pytest>=8.2", "ruff>=0.5", "jupyterlab>=4.2"]
+all    = ["axiom-pricing[graph,mlops,models,report,dev]"]
+
+[project.scripts]
+axiom-waterfall  = "pricing.cli:waterfall"
+axiom-profile    = "pricing.cli:profile"
+axiom-verify     = "pricing.cli:reference_check"
+axiom-readiness  = "pricing.cli:readiness"
+axiom-models     = "pricing.cli:models"
+axiom-fixture    = "pricing.cli:mapping_fixture"
+axiom-win-model  = "pricing.cli:win_model"
+axiom-monitor    = "pricing.cli:monitor"
+axiom-registry   = "pricing.cli:manage_models"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pricing = ["py.typed"]
+
+# --------------------------------------------------------------------------
+# Engine configuration.
+#
+# Everything a host project might need to change lives here rather than in the
+# code, so adopting the module is a config edit, not a fork. Environment
+# variables still win, for deployment.
+# --------------------------------------------------------------------------
+[tool.axiom-pricing]
+source = "csv"
+data_dir = "data"
+reports_dir = "reports"
+
+# Which source schema the engine is reading. See `pricing.profiles.REGISTRY`;
+# a host project registers its own and names it here.
+profile = "b2b_industrial"
+
+[tool.axiom-pricing.readiness]
+# How much evidence each deliverable needs before its output means anything.
+# These match `config.RECOMMENDED_DEPTH`; where each number comes from, and which
+# of them rests on published work rather than on judgement, is set out in
+# docs/CONSTANTS.md. Do not lower one to make a model run. A deliverable that
+# abstains is the module working.
+#
+# They are settings rather than constants so that a deviation is a declared,
+# recorded act: anything below the recommended value is listed by
+# run_readiness.py and attached to every model fitted under it. Environment
+# overrides exist for experiments -- PRICING_MIN_ELASTICITY and friends -- not
+# for production runs.
+waterfall = 1
+margin_analytics = 20
+segmentation = 60
+elasticity = 120
+optimisation = 200
+
+# Segmentation clusters customers, so document count is not what binds it: what
+# binds is how many customers bought often enough to have a habit worth reading.
+segment_min_deals = 5
+segment_clusters = 4
+
+[tool.axiom-pricing.models]
+# The grain elasticity and acceptance are fitted at. Both hold a per-scope rule
+# of their own -- see docs/CONSTANTS.md -- and that rule is about one product's
+# history, not the size of the book. A book can clear the depth thresholds above
+# while every product scope abstains.
+#
+# Coarsening the scope is a real option, not a workaround: it changes what the
+# estimate is *about*, from "this SKU" to "this family", and the result says so.
+# Elasticity defaults to "segment": one slope per customer segment, measured with
+# each product's own level removed, so the segmentation feeds the elasticity.
+# Override per run: PRICING_ELASTICITY_SCOPE=product (or family).
+elasticity_scope = "segment"
+acceptance_scope = "product"
+
+# D6 price rules, applied before the best price is picked. margin_floor: never
+# below unit cost plus this share. min_win_probability: never a price whose
+# chance of winning falls below this -- the retention rule. min_volume_share:
+# never a price at which the segment elasticity expects volume to fall below
+# this share of today's -- the volume rule.
+margin_floor = 0.05
+min_win_probability = 0.25
+min_volume_share = 0.80
+segment_k = "auto"
+
+[tool.axiom-pricing.graph]
+# The AXIOM knowledge-graph export, read in place by the graph_json backend.
+# Named rather than discovered: a silent auto-pick between two exports is how a
+# number gets computed against last month's graph without anybody noticing.
+# PRICING_GRAPH_JSON overrides it. Empty means the one beside the repo.
+export = ""
+
+[tool.axiom-pricing.mapping]
+# Used when source = "workbook": an R2RML-style mapping and the workbook it
+# describes. Environment variables PRICING_SOURCE_MAPPING and PRICING_WORKBOOK
+# override both, for deployment.
+file = ""
+workbook = ""
+
+[tool.axiom-pricing.waterfall]
+# How a measure known only at document grain is treated when the report is finer
+# than that. `declared_grain` reports it against the document and abstains below
+# it. There is no supported alternative: the engine used to spread such measures
+# across the lines pro-rata by value, which produced a product-grain discount the
+# graph did not support. See docs/WEEK4_GRAIN_AND_READINESS.md.
+grain_policy = "declared_grain"
+certified_only = true
+min_transactions = 3
+tolerance = 0.01
+
+[tool.axiom-pricing.discounts]
+on_invoice = "on-invoice"
+off_invoice = "off-invoice"
+
+[tool.axiom-pricing.currency]
+# No FX rate exists in the graph, so cross-currency aggregates abstain.
+# A host project that has rates can supply them here and lift the abstention.
+allow_cross_currency = false
+reporting_currency = ""
+
+[tool.axiom-pricing.confidence]
+high = 0.80
+medium = 0.50
+thin_evidence_deals = 10
+
+[tool.axiom-pricing.mlflow]
+experiment = "axiom-pricing-engine"
+tracking_uri = "sqlite:///mlflow.db"
+
+# --------------------------------------------------------------------------
+# Tooling
+# --------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+# `slow` covers the MCMC fits. They are real tests, not optional ones -- but a
+# NUTS run is seconds to minutes, and a suite nobody runs protects nothing. CI
+# runs the default; `pytest -m slow` runs the samplers.
+addopts = "-q -m 'not slow'"
+markers = ["slow: needs an MCMC fit; run with -m slow"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]
+"scripts/*" = ["E402"]

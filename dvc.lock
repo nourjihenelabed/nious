@@ -10,35 +10,30 @@ stages:
       nfiles: 8
     - path: scripts/run_profile.py
       hash: md5
-      md5: 9b83f1c813f33fac5709f999ca037340
-      size: 2901
-      isexec: true
+      md5: 5c2dfe0352e54d4af0de0bfddddfd5a0
+      size: 2613
     - path: src/pricing/graph
       hash: md5
-      md5: 9d3b2ae2d4b918cfcafd2429fe168f23.dir
-      size: 51347
-      nfiles: 8
+      md5: abb6b7f83f786a4068906d78625baddc.dir
+      size: 42932
+      nfiles: 5
     - path: src/pricing/quality/profiling.py
       hash: md5
-      md5: b26aee3c5e50e433cfe98be88073c5e0
-      size: 12964
-      isexec: true
+      md5: 40fb02a9aecdb09c7e553b02b6fae52a
+      size: 11917
     outs:
     - path: reports/profile_amount_reconciliation.csv
       hash: md5
-      md5: 7f08592edd154280bf0755a3503cab79
-      size: 409
-      isexec: true
+      md5: c555fe247fa8071cf906e1499411b2a4
+      size: 414
     - path: reports/profile_null_rates.csv
       hash: md5
-      md5: 44cdf4463c54e73d6598eff41c1674fd
-      size: 2145
-      isexec: true
+      md5: d13d97c8b2efacb78f4e828939fede47
+      size: 2196
     - path: reports/profile_report.md
       hash: md5
-      md5: 283cdfcd48c9b7e8daa8ffcc2bd952a0
-      size: 21124
-      isexec: true
+      md5: ac6eba4a71f67d22bc37a3fd59183c0c
+      size: 21375
   waterfall:
     cmd: python scripts/run_waterfall.py
     deps:
@@ -49,37 +44,354 @@ stages:
       nfiles: 8
     - path: scripts/run_waterfall.py
       hash: md5
-      md5: e75bddca19c79b854958202266c9a99d
-      size: 5901
-      isexec: true
+      md5: d2158fa3d2f265f07ab8f85e2b42606d
+      size: 7377
     - path: src/pricing/contracts
       hash: md5
-      md5: 4df7a348873c161bfa47ae3bf8db724c.dir
-      size: 26441
-      nfiles: 4
+      md5: be35edc201184f6d025e61d567977c3a.dir
+      size: 10656
+      nfiles: 2
     - path: src/pricing/engine
       hash: md5
-      md5: bb9a166de1eeff40be70d37a07093e50.dir
-      size: 76118
-      nfiles: 10
+      md5: 45ff7c6dab1eda39d460c5ff3c48437d.dir
+      size: 52049
+      nfiles: 5
     - path: src/pricing/graph
       hash: md5
-      md5: 9d3b2ae2d4b918cfcafd2429fe168f23.dir
-      size: 51347
+      md5: abb6b7f83f786a4068906d78625baddc.dir
+      size: 42932
+      nfiles: 5
+    outs:
+    - path: reports/waterfall_facts.csv
+      hash: md5
+      md5: 2fe20c88e14916b5fd69af7e25b94f3d
+      size: 438624
+    - path: reports/waterfall_totals.csv
+      hash: md5
+      md5: 109ef41d244de2007ceb9ffd5b823b52
+      size: 476
+  reference_check:
+    cmd: python scripts/run_reference_check.py --quiet
+    deps:
+    - path: scripts/run_reference_check.py
+      hash: md5
+      md5: fb4eff688cccefe9802bf8ab053a106b
+      size: 6916
+    - path: src/pricing/engine
+      hash: md5
+      md5: 45ff7c6dab1eda39d460c5ff3c48437d.dir
+      size: 52049
+      nfiles: 5
+    - path: src/pricing/graph
+      hash: md5
+      md5: abb6b7f83f786a4068906d78625baddc.dir
+      size: 42932
+      nfiles: 5
+    - path: tests/reference
+      hash: md5
+      md5: c8e116dbea8f769fec1c26aad5dfc240.dir
+      size: 5438
+      nfiles: 10
+    outs:
+    - path: reports/reference_check.csv
+      hash: md5
+      md5: ca276702b6c9c4ad5ac321bec64470b5
+      size: 15407
+    - path: reports/reference_check.md
+      hash: md5
+      md5: 771b62f98388d89c12fdfce2c112eacb
+      size: 36426
+  models_axiom_v2:
+    cmd: python scripts/run_models.py --profile axiom_v2 --graph 
+      data/snapshot_axiom_v2 --out reports_axiom_v2
+    deps:
+    - path: data/snapshot_axiom_v2
+      hash: md5
+      md5: a314f2f17d6a31d6b1726e6b248b928b.dir
+      size: 70002753
+      nfiles: 3
+    - path: reports_axiom_v2/waterfall_facts.csv
+      hash: md5
+      md5: 1691673422576a2edb31771db9c42433
+      size: 4526230
+    - path: scripts/run_models.py
+      hash: md5
+      md5: ecc870d68168e10a88d2c407ded6d153
+      size: 8449
+    - path: src/pricing/analytics
+      hash: md5
+      md5: 54ae87327f757713eef9725bd1ce2bd1.dir
+      size: 10789
+      nfiles: 2
+    - path: src/pricing/config.py
+      hash: md5
+      md5: 7b9b2944496916d1b73cb82a76efd1fc
+      size: 11629
+    - path: src/pricing/contracts
+      hash: md5
+      md5: be35edc201184f6d025e61d567977c3a.dir
+      size: 10656
+      nfiles: 2
+    - path: src/pricing/engine
+      hash: md5
+      md5: 45ff7c6dab1eda39d460c5ff3c48437d.dir
+      size: 52049
+      nfiles: 5
+    - path: src/pricing/models
+      hash: md5
+      md5: 2b1beba6f1a2ad5082ffcac37e5686a2.dir
+      size: 121692
+      nfiles: 7
+    - path: src/pricing/profiles.py
+      hash: md5
+      md5: 7a21e3ea0eda00396f6043b0035f59d1
+      size: 62087
+    - path: src/pricing/tracking
+      hash: md5
+      md5: 412a715b070fe58809fe805d105da391.dir
+      size: 20005
+      nfiles: 3
+    outs:
+    - path: reports_axiom_v2/engine_result.json
+      hash: md5
+      md5: d2b3c783c0e375b5bbb40817e120ca01
+      size: 928906
+    - path: reports_axiom_v2/model_elasticity.csv
+      hash: md5
+      md5: 1716cd5b8fff2217008221e3085f4511
+      size: 1675
+    - path: reports_axiom_v2/model_links.json
+      hash: md5
+      md5: b9b329aa1ef3d4938eddb120e400110f
+      size: 518
+    - path: reports_axiom_v2/model_recommendations.csv
+      hash: md5
+      md5: effed25acde717c73de2f56ef42b943a
+      size: 124665
+    - path: reports_axiom_v2/model_segment_k_selection.csv
+      hash: md5
+      md5: 46bedba92de4e58e256c58e6996fce56
+      size: 670
+    - path: reports_axiom_v2/model_segments.csv
+      hash: md5
+      md5: 691263fb61d84c9809c92caa7749b962
+      size: 94413
+    - path: reports_axiom_v2/model_tradeoff_curves.csv
+      hash: md5
+      md5: 31b8a9716840f9c86b040cea3a1826f9
+      size: 1391448
+    - path: reports_axiom_v2/model_win_calibration.csv
+      hash: md5
+      md5: 96dd75deb636903ca2b4c494b6fe46a9
+      size: 308
+    - path: reports_axiom_v2/model_win_report.txt
+      hash: md5
+      md5: 21a546e618256786f802b67b1d8b090a
+      size: 1700
+  monitor_axiom_v2:
+    cmd: python scripts/run_monitoring.py --profile axiom_v2 --graph 
+      data/snapshot_axiom_v2 --out reports_axiom_v2 --backtest --report-only
+    deps:
+    - path: data/snapshot_axiom_v2
+      hash: md5
+      md5: a314f2f17d6a31d6b1726e6b248b928b.dir
+      size: 70002753
+      nfiles: 3
+    - path: reports_axiom_v2/model_win_report.txt
+      hash: md5
+      md5: 21a546e618256786f802b67b1d8b090a
+      size: 1700
+    - path: scripts/run_monitoring.py
+      hash: md5
+      md5: 61a75ca61f0bac8e28ee90ecea502a7d
+      size: 5689
+    - path: src/pricing/models/segmentation.py
+      hash: md5
+      md5: 06d30efe4556fb47dcec7bdc839b6bef
+      size: 19657
+    - path: src/pricing/models/win_probability.py
+      hash: md5
+      md5: 7f21c76207397a465bec829c5dd15ac8
+      size: 22478
+    - path: src/pricing/monitoring.py
+      hash: md5
+      md5: a5965c6ec5ef2e3c0ec35ce7c583dc76
+      size: 7426
+    - path: src/pricing/profiles.py
+      hash: md5
+      md5: 7a21e3ea0eda00396f6043b0035f59d1
+      size: 62087
+    outs:
+    - path: reports_axiom_v2/monitoring_monthly.csv
+      hash: md5
+      md5: 8d73e1340f1265b3100f444768e0a46e
+      size: 320
+    - path: reports_axiom_v2/monitoring_report.txt
+      hash: md5
+      md5: 9ffe0ca9edd2f62a4bd26859b580ee4d
+      size: 1620
+  readiness_axiom_v2:
+    cmd: python scripts/run_readiness.py --profile axiom_v2 --graph 
+      data/snapshot_axiom_v2 --out reports_axiom_v2
+    deps:
+    - path: data/snapshot_axiom_v2
+      hash: md5
+      md5: a314f2f17d6a31d6b1726e6b248b928b.dir
+      size: 70002753
+      nfiles: 3
+    - path: scripts/run_readiness.py
+      hash: md5
+      md5: 5300acb585caca71f24ed4b62c891db4
+      size: 4485
+    - path: src/pricing/profiles.py
+      hash: md5
+      md5: 7a21e3ea0eda00396f6043b0035f59d1
+      size: 62087
+    - path: src/pricing/quality/readiness.py
+      hash: md5
+      md5: 8b902e68e11dc4e41f5936775006c182
+      size: 18147
+    - path: src/pricing/spec.py
+      hash: md5
+      md5: cdb7da4578ec1b810a1958ed652cca2a
+      size: 9629
+    outs:
+    - path: reports_axiom_v2/readiness_axiom_v2.md
+      hash: md5
+      md5: defb322e816df43e5b80e3c13d49eb80
+      size: 4318
+  waterfall_axiom_v2:
+    cmd: python scripts/run_waterfall.py --profile axiom_v2 --graph 
+      data/snapshot_axiom_v2 --out reports_axiom_v2
+    deps:
+    - path: data/snapshot_axiom_v2
+      hash: md5
+      md5: a314f2f17d6a31d6b1726e6b248b928b.dir
+      size: 70002753
+      nfiles: 3
+    - path: scripts/run_waterfall.py
+      hash: md5
+      md5: d2158fa3d2f265f07ab8f85e2b42606d
+      size: 7377
+    - path: src/pricing/contracts
+      hash: md5
+      md5: be35edc201184f6d025e61d567977c3a.dir
+      size: 10656
+      nfiles: 2
+    - path: src/pricing/engine
+      hash: md5
+      md5: 45ff7c6dab1eda39d460c5ff3c48437d.dir
+      size: 52049
+      nfiles: 5
+    - path: src/pricing/graph
+      hash: md5
+      md5: abb6b7f83f786a4068906d78625baddc.dir
+      size: 42932
+      nfiles: 5
+    - path: src/pricing/profiles.py
+      hash: md5
+      md5: 7a21e3ea0eda00396f6043b0035f59d1
+      size: 62087
+    outs:
+    - path: reports_axiom_v2/waterfall_facts.csv
+      hash: md5
+      md5: 1691673422576a2edb31771db9c42433
+      size: 4526230
+    - path: reports_axiom_v2/waterfall_totals.csv
+      hash: md5
+      md5: aba84b631f143478eb4fa81a42ae29eb
+      size: 478
+  readiness:
+    cmd: python scripts/run_readiness.py
+    deps:
+    - path: data/snapshot_synthetic_v1
+      hash: md5
+      md5: 63031c8af3726c6a3ca808e467b8643f.dir
+      size: 164409
       nfiles: 8
+    - path: scripts/run_readiness.py
+      hash: md5
+      md5: 5300acb585caca71f24ed4b62c891db4
+      size: 4485
+    - path: src/pricing/profiles.py
+      hash: md5
+      md5: 7a21e3ea0eda00396f6043b0035f59d1
+      size: 62087
+    - path: src/pricing/quality/readiness.py
+      hash: md5
+      md5: 8b902e68e11dc4e41f5936775006c182
+      size: 18147
+    - path: src/pricing/spec.py
+      hash: md5
+      md5: cdb7da4578ec1b810a1958ed652cca2a
+      size: 9629
+    outs:
+    - path: reports/readiness_b2b_industrial.md
+      hash: md5
+      md5: c2c3e33a22f3cbb62c614cdbffdf327d
+      size: 4950
+    - path: reports/readiness_b2b_industrial_capabilities.csv
+      hash: md5
+      md5: c5c1fcfa260b0639f3843a73ec992308
+      size: 357
+    - path: reports/readiness_b2b_industrial_checks.csv
+      hash: md5
+      md5: e230ff746e4477ae1c1c253fda1174ef
+      size: 726
+  models:
+    cmd: python scripts/run_models.py
+    deps:
+    - path: data/snapshot_synthetic_v1
+      hash: md5
+      md5: 63031c8af3726c6a3ca808e467b8643f.dir
+      size: 164409
+      nfiles: 8
+    - path: reports/waterfall_facts.csv
+      hash: md5
+      md5: 2fe20c88e14916b5fd69af7e25b94f3d
+      size: 438624
+    - path: scripts/run_models.py
+      hash: md5
+      md5: ecc870d68168e10a88d2c407ded6d153
+      size: 8449
+    - path: src/pricing/analytics
+      hash: md5
+      md5: 54ae87327f757713eef9725bd1ce2bd1.dir
+      size: 10789
+      nfiles: 2
+    - path: src/pricing/contracts
+      hash: md5
+      md5: be35edc201184f6d025e61d567977c3a.dir
+      size: 10656
+      nfiles: 2
+    - path: src/pricing/engine
+      hash: md5
+      md5: 45ff7c6dab1eda39d460c5ff3c48437d.dir
+      size: 52049
+      nfiles: 5
+    - path: src/pricing/models
+      hash: md5
+      md5: 2b1beba6f1a2ad5082ffcac37e5686a2.dir
+      size: 121692
+      nfiles: 7
     outs:
     - path: reports/engine_result.json
       hash: md5
-      md5: 5770a7b411d8692fa4cb2f8f0bb7df03
-      size: 63669
-      isexec: true
-    - path: reports/waterfall_facts.csv
+      md5: 5c0d554608f898e9db40ca7824943b87
+      size: 336361
+    - path: reports/margin_summary.csv
       hash: md5
-      md5: ab1f0d4fbb2d720f4c2702fe419bb7a4
-      size: 561308
-      isexec: true
-    - path: reports/waterfall_totals.csv
+      md5: 634afe601275b0cafbafb36350f220f3
+      size: 284
+    - path: reports/model_elasticity.csv
       hash: md5
-      md5: af6ef1c73f0dcefe58e5e0b25fb3947e
-      size: 459
-      isexec: true
+      md5: 48de7d8bc5083669622139e15f8269d3
+      size: 1216
+    - path: reports/model_recommendations.csv
+      hash: md5
+      md5: 9e4b50956de6b478c85f9457307ff203
+      size: 43573
+    - path: reports/model_segments.csv
+      hash: md5
+      md5: d515d1581eba625bdddee2e1491ba720
+      size: 6590

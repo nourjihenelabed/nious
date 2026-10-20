@@ -1,16 +1,4 @@
-"""
-Result-contract tests (D8 draft).
-
-These are the tests Track B depends on. They check the promises we are making
-to Mohamed, not the maths behind them:
-
-  * every published number carries evidence he can cite
-  * low confidence always comes with a stated reason
-  * missing is expressed as UNAVAILABLE, never as 0
-  * the payload round-trips to JSON
-
-Run:  pytest -q
-"""
+"""Result-contract tests (D8): the promises Track B is allowed to rely on."""
 
 from __future__ import annotations
 
@@ -30,50 +18,48 @@ from pricing.graph import CsvGraphSource  # noqa: E402
 
 @pytest.fixture(scope="module")
 def w():
+    """The waterfall over the whole snapshot."""
     return wf.compute(CsvGraphSource())
 
 
 @pytest.fixture(scope="module")
 def result(w) -> C.EngineResult:
-    # currency in the grain -- the only publishable form (see below)
+    """A result built at the only publishable grains: currency included."""
     return result_builder.build(
         w, grains=(["segment", "currency"], ["region", "currency"]), min_transactions=3
     )
 
 
-# --------------------------------------------------------------------------
-# Value types
-# --------------------------------------------------------------------------
 def test_money_distinguishes_missing_from_zero():
+    """A zero amount and an absent amount must never be confusable."""
     zero = C.Money(0.0)
     missing = C.Money.unavailable("no unit cost")
 
     assert zero.amount == 0.0 and zero.status is C.ResultStatus.COMPLETE
     assert missing.amount is None and missing.status is C.ResultStatus.UNAVAILABLE
-    # the truthiness guard: `if money:` must not silently mean `if amount:`
     assert bool(zero) is True
     assert bool(missing) is False
     assert missing.note
 
 
 def test_confidence_bands():
+    """Scores map to bands, and out-of-range scores are clamped."""
     assert C.Confidence.from_score(0.95).band is C.ConfidenceBand.HIGH
     assert C.Confidence.from_score(0.60).band is C.ConfidenceBand.MEDIUM
     assert C.Confidence.from_score(0.20).band is C.ConfidenceBand.LOW
     assert C.Confidence.from_score(0.0).band is C.ConfidenceBand.NONE
-    assert C.Confidence.from_score(5.0).score == 1.0  # clamped
+    assert C.Confidence.from_score(5.0).score == 1.0
 
 
 def test_price_range_must_be_ordered():
+    """An unordered low/mid/high band cannot be constructed."""
     C.PriceRange(90, 100, 110)
     with pytest.raises(ValueError):
         C.PriceRange(110, 100, 90)
 
 
-# --------------------------------------------------------------------------
-# The promises to Track B
-# --------------------------------------------------------------------------
 def test_result_has_no_violations(result):
+    """A result the engine emits must pass its own validator."""
     problems = C.validate(result)
     assert not problems, "\n".join(problems)
 
@@ -87,6 +73,7 @@ def test_every_published_record_cites_evidence(result):
 
 
 def test_low_confidence_always_explains_itself(result):
+    """The narrative must be able to say why confidence is low."""
     for r in result.waterfalls:
         if r.confidence.band in (C.ConfidenceBand.LOW, C.ConfidenceBand.NONE):
             assert r.confidence.reasons, f"{r.key}: low confidence with no reason"
@@ -101,6 +88,7 @@ def test_partial_coverage_is_not_reported_as_complete(result):
 
 
 def test_provenance_is_present(result):
+    """Without a snapshot hash and a version, a result is not reproducible."""
     p = result.provenance
     assert p.snapshot_hash, "result is not reproducible without a snapshot hash"
     assert p.contract_version == C.CONTRACT_VERSION
@@ -108,6 +96,7 @@ def test_provenance_is_present(result):
 
 
 def test_records_reconcile_internally(result):
+    """Each published record's own steps must still add up."""
     for r in result.waterfalls:
         if r.gross_value.amount is None:
             continue
@@ -119,15 +108,8 @@ def test_records_reconcile_internally(result):
         ) < 0.01
 
 
-# --------------------------------------------------------------------------
-# Currency safety
-# --------------------------------------------------------------------------
 def test_cross_currency_aggregate_is_never_published(w):
-    """
-    The graph holds five currencies and no FX rate. An aggregate spanning them
-    is a number with no unit, so it must abstain -- amounts suppressed, ratios
-    suppressed, and the reason stated.
-    """
+    """Five currencies and no FX rate: a spanning aggregate must abstain, and say why."""
     mixed = result_builder.build(w, grains=("segment",), min_transactions=3)
     assert mixed.waterfalls
     for r in mixed.waterfalls:
@@ -150,19 +132,15 @@ def test_single_currency_grain_is_publishable(result):
         assert r.key.get("currency") == r.pocket_price.currency
 
 
-# --------------------------------------------------------------------------
-# Serialisation -- this is what actually crosses the boundary
-# --------------------------------------------------------------------------
 def test_round_trips_to_json(result):
+    """Enums serialise as values and missing money is visibly missing in JSON too."""
     payload = json.loads(result.to_json())
     assert payload["provenance"]["contract_version"] == C.CONTRACT_VERSION
     assert len(payload["waterfalls"]) == len(result.waterfalls)
 
     first = payload["waterfalls"][0]
-    # enums must serialise as their string values, not as "ResultStatus.COMPLETE"
     assert first["status"] in {s.value for s in C.ResultStatus}
     assert first["confidence"]["band"] in {b.value for b in C.ConfidenceBand}
-    # missing money must be visibly missing in JSON too
     assert "amount" in first["list_value"] and "status" in first["list_value"]
 
 
@@ -178,7 +156,7 @@ def test_contract_validate_catches_a_fabricated_result():
                 negotiated_off_list=C.Money(0.0),
                 gross_value=C.Money(100.0),
                 on_invoice_discount=C.Money(10.0),
-                invoice_price=C.Money(999.0),   # does not reconcile
+                invoice_price=C.Money(999.0),
                 off_invoice_leakage=C.Money(0.0),
                 pocket_price=C.Money(90.0),
                 cogs=C.Money(50.0),
@@ -187,7 +165,7 @@ def test_contract_validate_catches_a_fabricated_result():
                 price_realisation_pct=90.0,
                 status=C.ResultStatus.COMPLETE,
                 confidence=C.Confidence.from_score(0.9),
-                evidence=C.Evidence(),          # cites nothing
+                evidence=C.Evidence(),
             ),
         ),
     )

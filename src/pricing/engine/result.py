@@ -1,58 +1,65 @@
-"""
-Translate engine internals into the Track B contract.
-
-This is the only module allowed to build `contracts.EngineResult` objects. The
-separation is deliberate: internally the engine speaks pandas, because that is
-what the maths wants; externally it speaks typed records with evidence and
-confidence attached, because that is what a governance product needs.
-
-Keeping the translation in one file means the contract can be frozen (Week 7)
-without freezing how the waterfall is computed.
-"""
+"""Translate engine internals (pandas) into the typed Track B contract."""
 
 from __future__ import annotations
 
+import math
+
 import pandas as pd
 
+from ..config import THIN_EVIDENCE_DEALS
 from ..contracts import schema as C
-from .aggregation import aggregate, resolve
+from .aggregation import aggregate
 from .waterfall import Waterfall
 
 
+def _finite(value) -> float | None:
+    """Coerce to a finite float, or None. NaN and +/-inf are both 'no number'."""
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
 def _money(value, currency: str = "EUR", reason: str = "input missing") -> C.Money:
-    """A number becomes Money; a NaN becomes an explicit UNAVAILABLE."""
-    if value is None or (isinstance(value, float) and pd.isna(value)) or pd.isna(value):
+    """A number becomes Money; anything not finite becomes an explicit UNAVAILABLE."""
+    number = _finite(value)
+    if number is None:
         return C.Money.unavailable(reason, currency)
-    return C.Money(round(float(value), 2), currency)
+    return C.Money(round(number, 2), currency)
+
+
+def _pct(value) -> float | None:
+    """A ratio becomes a rounded float, or None when it does not exist."""
+    number = _finite(value)
+    return None if number is None else round(number, 2)
 
 
 def _confidence_for(row: pd.Series, reasons: tuple[str, ...] = ()) -> C.Confidence:
-    """
-    Confidence for a waterfall row.
-
-    Deliberately simple and explainable in one sentence: confidence IS coverage,
-    lightly penalised when the group is thin. A clever opaque score would be
-    worse here -- Track B has to justify this number to a reader.
-
-    The real Pricing Data Readiness Score (D3, Week 4) will supersede this.
-    """
+    """Confidence for a waterfall row: coverage, penalised when evidence is thin."""
     coverage = row.get("coverage_pct")
     coverage = 0.0 if pd.isna(coverage) else float(coverage) / 100.0
 
     n = int(row.get("n_transactions_certified", 0) or 0)
-    # Thin evidence caps confidence: 1 deal cannot be "high confidence" however
-    # complete its data is.
-    thinness = min(1.0, n / 10.0)
+    thinness = min(1.0, n / float(THIN_EVIDENCE_DEALS))
     score = coverage * (0.5 + 0.5 * thinness)
 
     why = list(reasons)
     if coverage < 1.0:
         excluded = int(row.get("n_transactions", 0)) - n
         why.append(f"{excluded} of {int(row.get('n_transactions', 0))} transactions not fully decomposable")
-    if n < 10:
+    if n < THIN_EVIDENCE_DEALS:
         why.append(f"only {n} certified transaction(s) in this group")
     return C.Confidence.from_score(score, tuple(why))
 
+
+#: The nine steps `contracts.WaterfallRecord` has fields for.
+CANONICAL_STEPS: tuple[str, ...] = (
+    "list_value", "negotiated_off_list", "gross_value", "on_invoice_discount",
+    "invoice_price", "off_invoice_leakage", "pocket_price", "cogs", "pocket_margin",
+)
 
 MIXED_CURRENCY_NOTE = (
     "aggregate spans {n} currencies ({codes}) and the graph carries no FX rate; "
@@ -60,13 +67,35 @@ MIXED_CURRENCY_NOTE = (
 )
 
 
+def _step_money(
+    step: str,
+    row: pd.Series,
+    profile,
+    absent: dict[str, str],
+    currency: str,
+    mixed: bool,
+    money_reason: str,
+) -> C.Money:
+    """One canonical step as Money, or an UNAVAILABLE that says why."""
+    if mixed:
+        return C.Money.unavailable(money_reason, currency)
+    if not profile.has(step):
+        return C.Money.unavailable(
+            absent.get(step, f"{step} is not part of the {profile.name} waterfall"),
+            currency,
+        )
+    if step in absent and pd.isna(row.get(step)):
+        return C.Money.unavailable(absent[step], currency)
+    return _money(row.get(step), currency, money_reason)
+
+
 def _is_mixed_currency(row: pd.Series) -> bool:
+    """True when a group spans more than one currency."""
     return int(row.get("n_currencies", 1) or 1) > 1
 
 
 def _status_for(row: pd.Series) -> C.ResultStatus:
-    # A cross-currency sum is not a number we can defend. Abstain, and say why.
-    # The caller's fix is to include `currency` in the grain.
+    """Decide COMPLETE / PARTIAL / UNAVAILABLE / ABSTAINED for one group."""
     if _is_mixed_currency(row):
         return C.ResultStatus.ABSTAINED
     declared = row.get("status")
@@ -80,22 +109,27 @@ def _status_for(row: pd.Series) -> C.ResultStatus:
     return C.ResultStatus.COMPLETE if coverage >= 100 else C.ResultStatus.PARTIAL
 
 
-def _evidence_for(facts: pd.DataFrame, cols: list[str], key: dict, max_ids: int = 200) -> C.Evidence:
-    """
-    The graph records this row was computed from.
-
-    Capped at `max_ids`: Track B needs enough to cite, not the entire book. The
-    full set is always recoverable by re-running the same groupby, and the cap
-    keeps a result payload from becoming unusable at real data volumes.
-    """
+def _evidence_for(
+    w: Waterfall, cols: list[str], key: dict, max_ids: int = 200
+) -> C.Evidence:
+    """The certified records this row was computed from, capped for payload size."""
+    facts = w.facts
     mask = pd.Series(True, index=facts.index)
     for col in cols:
-        mask &= facts[col] == key[col]
+        if col in facts.columns:
+            mask &= facts[col] == key[col]
     sub = facts[mask & facts["certified"]]
+
+    def ids(column: str) -> tuple[str, ...]:
+        """Distinct non-null ids from one column, or nothing when it is absent."""
+        if column not in sub.columns:
+            return ()
+        return tuple(sub[column].dropna().unique()[:max_ids])
+
     return C.Evidence(
-        transaction_ids=tuple(sub["transaction_id"].unique()[:max_ids]),
-        customer_ids=tuple(sub["customer_id"].dropna().unique()[:max_ids]),
-        product_ids=tuple(sub["product_id"].dropna().unique()[:max_ids]),
+        transaction_ids=ids(w.profile.key),
+        customer_ids=ids("customer_id"),
+        product_ids=ids("product_id"),
     )
 
 
@@ -105,16 +139,22 @@ def waterfall_records(
     min_transactions: int = 0,
     with_evidence: bool = True,
 ) -> tuple[C.WaterfallRecord, ...]:
-    """Aggregate to `dimension` (a name or a list of names) and emit records."""
-    cols = resolve(dimension)
+    """Aggregate to `dimension` and emit one typed contract record per group."""
+    profile = w.profile
+    cols = profile.resolve(dimension)
     grain = dimension if isinstance(dimension, str) else "x".join(dimension)
     agg = aggregate(w, dimension, min_transactions=min_transactions)
+    absent = dict(profile.absent_steps)
+    for step in profile.step_names:
+        if step in agg.columns and agg[step].isna().all() and step not in absent:
+            note = str(agg["grain_note"].iloc[0]) if "grain_note" in agg.columns else ""
+            if note:
+                absent.setdefault(step, note)
 
     records = []
     for _, row in agg.iterrows():
         key = {c: row[c] for c in cols}
 
-        # Currency of the group. Unambiguous only when the group holds one.
         codes = str(row.get("currencies", "") or "")
         mixed = _is_mixed_currency(row)
         currency = "MIXED" if mixed else (codes or "EUR")
@@ -135,41 +175,36 @@ def waterfall_records(
                 - {""}
             )
         ) if cols[0] in w.facts else ()
-
-        def m(step: str) -> C.Money:
-            # A cross-currency group publishes nothing: the amount exists in the
-            # dataframe for inspection, but it is not a defensible figure, so it
-            # does not cross the contract boundary.
-            if mixed:
-                return C.Money.unavailable(money_reason, currency)
-            return _money(row.get(step), currency, money_reason)
+        if absent:
+            reason_texts = (*reason_texts, *sorted(set(absent.values())))
 
         if mixed:
             reason_texts = (*reason_texts, money_reason)
+
+        money = {
+            step: _step_money(step, row, profile, absent, currency, mixed, money_reason)
+            for step in CANONICAL_STEPS
+        }
 
         records.append(
             C.WaterfallRecord(
                 grain=grain,
                 key=key,
-                list_value=m("list_value"),
-                negotiated_off_list=m("negotiated_off_list"),
-                gross_value=m("gross_value"),
-                on_invoice_discount=m("on_invoice_discount"),
-                invoice_price=m("invoice_price"),
-                off_invoice_leakage=m("off_invoice_leakage"),
-                pocket_price=m("pocket_price"),
-                cogs=m("cogs"),
-                pocket_margin=m("pocket_margin"),
-                # Ratios survive a currency mix only if every leg shares a unit,
-                # which is exactly what mixed means it does not. Suppress them too.
-                pocket_margin_pct=None if (mixed or pd.isna(row.get("pocket_margin_pct")))
-                else round(float(row["pocket_margin_pct"]), 2),
-                price_realisation_pct=None if (mixed or pd.isna(row.get("price_realisation_pct")))
-                else round(float(row["price_realisation_pct"]), 2),
+                list_value=money["list_value"],
+                negotiated_off_list=money["negotiated_off_list"],
+                gross_value=money["gross_value"],
+                on_invoice_discount=money["on_invoice_discount"],
+                invoice_price=money["invoice_price"],
+                off_invoice_leakage=money["off_invoice_leakage"],
+                pocket_price=money["pocket_price"],
+                cogs=money["cogs"],
+                pocket_margin=money["pocket_margin"],
+                pocket_margin_pct=None if mixed else _pct(row.get("pocket_margin_pct")),
+                price_realisation_pct=None if mixed else _pct(row.get("price_realisation_pct")),
                 status=_status_for(row),
                 confidence=C.Confidence.from_score(0.0, reason_texts) if mixed
                 else _confidence_for(row, reason_texts),
-                evidence=_evidence_for(w.facts, cols, key) if with_evidence else C.Evidence(),
+                evidence=_evidence_for(w, cols, key) if with_evidence else C.Evidence(),
                 n_transactions=int(row.get("n_transactions", 0) or 0),
                 n_certified=int(row.get("n_transactions_certified", 0) or 0),
             )
@@ -196,7 +231,8 @@ def build(
     for grain in grains:
         records.extend(waterfall_records(w, grain, min_transactions=min_transactions))
 
-    dates = w.facts["date"].dropna()
+    date_col = w.profile.date_column
+    dates = w.facts[date_col].dropna() if date_col and date_col in w.facts else pd.Series(dtype="datetime64[ns]")
     period = (dates.min().date(), dates.max().date()) if len(dates) else (None, None)
 
     return C.EngineResult(

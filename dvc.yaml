@@ -21,6 +21,37 @@
 #     git add data/snapshot_2026-07-08.dvc data/.gitignore && git commit -m "pin snapshot"
 
 stages:
+  readiness:
+    desc: D3 admission test -- can this snapshot support pricing analytics at all?
+    cmd: python scripts/run_readiness.py
+    deps:
+      - scripts/run_readiness.py
+      - src/pricing/quality/readiness.py
+      - src/pricing/profiles.py
+      - src/pricing/spec.py
+      - data/snapshot_synthetic_v1
+    outs:
+      - reports/readiness_b2b_industrial.md:
+          cache: false
+      - reports/readiness_b2b_industrial_checks.csv:
+          cache: false
+      - reports/readiness_b2b_industrial_capabilities.csv:
+          cache: false
+
+  reference_check:
+    desc: D2 acceptance -- waterfall vs the hand-computed reference dataset
+    cmd: python scripts/run_reference_check.py --quiet
+    deps:
+      - scripts/run_reference_check.py
+      - src/pricing/engine
+      - src/pricing/graph
+      - tests/reference
+    outs:
+      - reports/reference_check.md:
+          cache: false
+      - reports/reference_check.csv:
+          cache: false
+
   profile:
     desc: Profile the snapshot -- counts, null rates, distributions, integrity
     cmd: python scripts/run_profile.py
@@ -49,8 +80,117 @@ stages:
     outs:
       - reports/waterfall_facts.csv:
           cache: false
-      - reports/engine_result.json:
-          cache: false
     metrics:
       - reports/waterfall_totals.csv:
+          cache: false
+
+  models:
+    desc: D4-D6 -- segmentation, elasticity, acceptance and price recommendations; writes the full Track B contract
+    cmd: python scripts/run_models.py
+    deps:
+      - scripts/run_models.py
+      - src/pricing/models
+      - src/pricing/analytics
+      - src/pricing/engine
+      - src/pricing/contracts
+      - data/snapshot_synthetic_v1
+      - reports/waterfall_facts.csv     # runs after the waterfall stage, whose contract it replaces
+    outs:
+      - reports/engine_result.json:
+          cache: false
+      - reports/model_segments.csv:
+          cache: false
+      - reports/model_elasticity.csv:
+          cache: false
+      - reports/model_recommendations.csv:
+          cache: false
+      - reports/margin_summary.csv:
+          cache: false
+
+  # ------------------------------------------------------------------------
+  # AXIOM pricing dataset v2 -- the graph export, versioned with
+  #     python -m dvc add data/snapshot_axiom_v2
+  # and read in place. One command reproduces every result from it:
+  #     python -m dvc repro monitor_axiom_v2
+  # (run inside the project's virtual environment, so `python` is the venv's).
+  # ------------------------------------------------------------------------
+  readiness_axiom_v2:
+    desc: D3 -- can the v2 snapshot support each deliverable?
+    cmd: python scripts/run_readiness.py --profile axiom_v2 --graph data/snapshot_axiom_v2 --out reports_axiom_v2
+    deps:
+      - scripts/run_readiness.py
+      - src/pricing/quality/readiness.py
+      - src/pricing/profiles.py
+      - src/pricing/spec.py
+      - data/snapshot_axiom_v2
+    outs:
+      - reports_axiom_v2/readiness_axiom_v2.md:
+          cache: false
+
+  waterfall_axiom_v2:
+    desc: D2 -- price waterfall on the v2 snapshot, and the Track B contract
+    cmd: python scripts/run_waterfall.py --profile axiom_v2 --graph data/snapshot_axiom_v2 --out reports_axiom_v2
+    deps:
+      - scripts/run_waterfall.py
+      - src/pricing/engine
+      - src/pricing/contracts
+      - src/pricing/graph
+      - src/pricing/profiles.py
+      - data/snapshot_axiom_v2
+    outs:
+      - reports_axiom_v2/waterfall_facts.csv:
+          cache: false
+    metrics:
+      - reports_axiom_v2/waterfall_totals.csv:
+          cache: false
+
+  models_axiom_v2:
+    desc: D4-D6 on v2 -- segments -> elasticity, segments -> win probability, elasticity -> volume rule; registers the win model and writes the full Track B contract
+    cmd: python scripts/run_models.py --profile axiom_v2 --graph data/snapshot_axiom_v2 --out reports_axiom_v2
+    deps:
+      - scripts/run_models.py
+      - src/pricing/models
+      - src/pricing/analytics
+      - src/pricing/engine
+      - src/pricing/contracts
+      - src/pricing/tracking
+      - src/pricing/profiles.py
+      - src/pricing/config.py
+      - data/snapshot_axiom_v2
+      - reports_axiom_v2/waterfall_facts.csv     # runs after the waterfall stage, whose contract it replaces
+    outs:
+      - reports_axiom_v2/engine_result.json:
+          cache: false
+      - reports_axiom_v2/model_links.json:
+          cache: false
+      - reports_axiom_v2/model_segments.csv:
+          cache: false
+      - reports_axiom_v2/model_segment_k_selection.csv:
+          cache: false
+      - reports_axiom_v2/model_elasticity.csv:
+          cache: false
+      - reports_axiom_v2/model_recommendations.csv:
+          cache: false
+      - reports_axiom_v2/model_tradeoff_curves.csv:
+          cache: false
+      - reports_axiom_v2/model_win_calibration.csv:
+          cache: false
+      - reports_axiom_v2/model_win_report.txt:
+          cache: false
+
+  monitor_axiom_v2:
+    desc: D7 -- win model drift, back-tested on the latest 20% of v2 decisions
+    cmd: python scripts/run_monitoring.py --profile axiom_v2 --graph data/snapshot_axiom_v2 --out reports_axiom_v2 --backtest --report-only
+    deps:
+      - scripts/run_monitoring.py
+      - src/pricing/monitoring.py
+      - src/pricing/models/win_probability.py
+      - src/pricing/models/segmentation.py
+      - src/pricing/profiles.py
+      - data/snapshot_axiom_v2
+      - reports_axiom_v2/model_win_report.txt
+    outs:
+      - reports_axiom_v2/monitoring_report.txt:
+          cache: false
+      - reports_axiom_v2/monitoring_monthly.csv:
           cache: false

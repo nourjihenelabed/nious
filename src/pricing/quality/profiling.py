@@ -1,46 +1,23 @@
-"""
-Graph / snapshot profiling.
-
-Week 1 asks for "counts, distributions, null rates". This module produces those
-as data (DataFrames), not as printed text, so the notebook, the CLI script and
-later the Pricing Data Readiness Score (D3, Week 4) all read the same numbers.
-
-Nothing here judges the data. It reports. Interpretation lives in
-docs/WEEK1_DATA_WRITEUP.md.
-"""
+"""Snapshot profiling: counts, null rates, distributions, integrity, reconciliation."""
 
 from __future__ import annotations
 
 import pandas as pd
 
+from ..config import OFF_INVOICE, ON_INVOICE
 from ..graph.source import GraphSource
 
-# Discount taxonomy -- imported here rather than hardcoded in three places.
-from ..config import OFF_INVOICE, ON_INVOICE
 
-
-# --------------------------------------------------------------------------
-# 1. Shape
-# --------------------------------------------------------------------------
 def table_counts(src: GraphSource) -> pd.DataFrame:
-    """Row and column count per table -- the graph's basic dimensions."""
+    """Row and column count per table."""
     rows = []
     for name, df in src.tables().items():
         rows.append({"table": name, "rows": len(df), "columns": df.shape[1]})
     return pd.DataFrame(rows).sort_values("rows", ascending=False, ignore_index=True)
 
 
-# --------------------------------------------------------------------------
-# 2. Null rates
-# --------------------------------------------------------------------------
 def null_rates(src: GraphSource) -> pd.DataFrame:
-    """
-    Per-column null count and rate across every table.
-
-    This is the single most important Week 1 artefact: every null is a decision
-    the waterfall will have to make later (flag as 'unavailable' vs. impute vs.
-    exclude), and the acceptance criteria forbid silently zeroing them.
-    """
+    """Per-column null count, rate and cardinality across every table."""
     rows = []
     for name, df in src.tables().items():
         for col in df.columns:
@@ -67,11 +44,8 @@ def null_summary(src: GraphSource) -> pd.DataFrame:
     )
 
 
-# --------------------------------------------------------------------------
-# 3. Distributions
-# --------------------------------------------------------------------------
 def numeric_profile(src: GraphSource) -> pd.DataFrame:
-    """Descriptive stats for every numeric column, plus a negative-value check."""
+    """Descriptive stats for every numeric column, plus negative and zero counts."""
     rows = []
     for name, df in src.tables().items():
         for col in df.select_dtypes("number").columns:
@@ -90,8 +64,6 @@ def numeric_profile(src: GraphSource) -> pd.DataFrame:
                     "median": s.median(),
                     "p75": s.quantile(0.75),
                     "max": s.max(),
-                    # Semantic type check (Brief 5.3): monetary values must be
-                    # positive, quantities non-negative.
                     "n_negative": int((s < 0).sum()),
                     "n_zero": int((s == 0).sum()),
                 }
@@ -100,12 +72,12 @@ def numeric_profile(src: GraphSource) -> pd.DataFrame:
 
 
 def categorical_profile(src: GraphSource, max_levels: int = 12) -> pd.DataFrame:
-    """Value counts for low-cardinality text columns (segment, tier, region...)."""
+    """Value counts for low-cardinality text columns, skipping IDs and free text."""
     rows = []
     for name, df in src.tables().items():
         for col in df.select_dtypes("object").columns:
             vc = df[col].value_counts(dropna=False)
-            if len(vc) > max_levels:  # skip IDs and free text
+            if len(vc) > max_levels:
                 continue
             for value, n in vc.items():
                 rows.append(
@@ -120,17 +92,8 @@ def categorical_profile(src: GraphSource, max_levels: int = 12) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-# --------------------------------------------------------------------------
-# 4. Referential integrity
-# --------------------------------------------------------------------------
 def referential_integrity(src: GraphSource) -> pd.DataFrame:
-    """
-    Do the foreign keys resolve? In graph terms: are there dangling edges?
-
-    An orphan transaction cannot be attributed to a customer or segment, so it
-    would silently distort every aggregate. We must know the count before we
-    build anything on top.
-    """
+    """Do the foreign keys resolve, and does every transaction have a line?"""
     txn = src.transactions()
     lines = src.transaction_lines()
     tdisc = src.transaction_discounts()
@@ -158,8 +121,6 @@ def referential_integrity(src: GraphSource) -> pd.DataFrame:
             }
         )
 
-    # Transactions with no line items at all -- a waterfall cannot start without
-    # a list-price basis, so these must be excluded, not zeroed.
     no_lines = set(txn["transaction_id"]) - set(lines["transaction_id"])
     rows.append(
         {
@@ -173,11 +134,8 @@ def referential_integrity(src: GraphSource) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-# --------------------------------------------------------------------------
-# 5. Pricing-specific reconciliation
-# --------------------------------------------------------------------------
 def discount_coverage(src: GraphSource) -> pd.DataFrame:
-    """How often each discount type is applied, and how much it is worth."""
+    """How often each discount is applied, and how much it is worth."""
     tdisc = src.transaction_discounts()
     disc = src.discounts()
     n_txn = src.transactions()["transaction_id"].nunique()
@@ -199,20 +157,7 @@ def discount_coverage(src: GraphSource) -> pd.DataFrame:
 
 
 def amount_reconciliation(src: GraphSource) -> pd.DataFrame:
-    """
-    Test the arithmetic the Data Contract implies, so we know what
-    gross_amount / net_amount actually mean in this snapshot.
-
-    Three hypotheses are checked per transaction:
-      H1  gross_amount == sum of CONTAINS.line_total
-      H2  net_amount   == gross - on-invoice discounts   (the textbook reading:
-          net/invoice price is what appears on the invoice)
-      H3  net_amount   == gross - ALL discounts
-
-    Whichever holds tells us where `net_amount` sits on the waterfall. If none
-    holds, we do not guess -- we ask, and meanwhile compute the waterfall from
-    the discount edges rather than from net_amount.
-    """
+    """Test four hypotheses about what gross_amount and net_amount actually mean."""
     txn = src.transactions().set_index("transaction_id")
     lines = src.transaction_lines()
     tdisc = src.transaction_discounts()
@@ -232,13 +177,13 @@ def amount_reconciliation(src: GraphSource) -> pd.DataFrame:
     )
 
     def _stat(label: str, diff: pd.Series) -> dict:
+        """Summarise how well one hypothesis holds across the book."""
         d = diff.dropna()
         return {
             "hypothesis": label,
             "n_tested": len(d),
             "max_abs_diff": d.abs().max(),
             "mean_abs_diff": d.abs().mean(),
-            # 0.01% of a typical transaction, per the D2 acceptance criterion
             "n_within_0.01pct": int((d.abs() <= 0.0001 * txn["gross_amount"].loc[d.index].abs()).sum()),
             "holds": bool(d.abs().max() < 0.01),
         }
@@ -254,11 +199,7 @@ def amount_reconciliation(src: GraphSource) -> pd.DataFrame:
 
 
 def list_price_coverage(src: GraphSource) -> pd.DataFrame:
-    """
-    Can we build a list-price basis? The waterfall starts at list price, which
-    lives on Product, not on the transaction. Any line whose product has no
-    list_price or unit_cost is a line the waterfall cannot fully decompose.
-    """
+    """How many lines have the list price and cost the waterfall needs."""
     lines = src.transaction_lines()
     prod = src.products()[["product_id", "list_price", "unit_cost"]]
     m = lines.merge(prod, on="product_id", how="left")
@@ -292,7 +233,7 @@ def list_price_coverage(src: GraphSource) -> pd.DataFrame:
 
 
 def date_profile(src: GraphSource) -> pd.DataFrame:
-    """Transaction volume by month -- checks coverage and spots future dates."""
+    """Transaction volume and value by month."""
     txn = src.transactions()
     d = txn.dropna(subset=["date"]).copy()
     d["month"] = d["date"].dt.to_period("M").astype(str)
@@ -303,17 +244,56 @@ def date_profile(src: GraphSource) -> pd.DataFrame:
     )
 
 
+#: Sections written in the `b2b_industrial` vocabulary -- they ask a source for `transactions`,
+#: `discounts` and the rest by those names.
+_SCHEMA_SPECIFIC: dict[str, tuple] = {
+    "referential_integrity": (
+        ("transactions", "transaction_lines", "transaction_discounts",
+         "customers", "channels", "regions", "products", "discounts"),
+    ),
+    "discount_coverage": (("transactions", "transaction_discounts", "discounts"),),
+    "amount_reconciliation": (
+        ("transactions", "transaction_lines", "transaction_discounts", "discounts"),
+    ),
+    "list_price_coverage": (("transaction_lines", "products"),),
+    "date_profile": (("transactions",),),
+}
+
+
+def _skipped(section: str, missing: tuple[str, ...]) -> pd.DataFrame:
+    """A section that could not run, as a row rather than as an exception."""
+    return pd.DataFrame(
+        [{
+            "check": section,
+            "status": "skipped",
+            "reason": "this source does not serve "
+                      f"{', '.join(missing)}; the check is written in the "
+                      "b2b_industrial vocabulary",
+        }]
+    )
+
+
 def run_all(src: GraphSource) -> dict[str, pd.DataFrame]:
-    """Every profile in one call. Keys become report section names."""
-    return {
+    """Every profile in one call; keys become report section names."""
+    out: dict[str, pd.DataFrame] = {
         "table_counts": table_counts(src),
         "null_summary": null_summary(src),
         "null_rates": null_rates(src),
         "numeric_profile": numeric_profile(src),
         "categorical_profile": categorical_profile(src),
-        "referential_integrity": referential_integrity(src),
-        "discount_coverage": discount_coverage(src),
-        "amount_reconciliation": amount_reconciliation(src),
-        "list_price_coverage": list_price_coverage(src),
-        "date_profile": date_profile(src),
     }
+
+    available = set(src.table_names())
+    functions = {
+        "referential_integrity": referential_integrity,
+        "discount_coverage": discount_coverage,
+        "amount_reconciliation": amount_reconciliation,
+        "list_price_coverage": list_price_coverage,
+        "date_profile": date_profile,
+    }
+    for section, (needed,) in _SCHEMA_SPECIFIC.items():
+        missing = tuple(t for t in needed if t not in available)
+        out[section] = (
+            _skipped(section, missing) if missing else functions[section](src)
+        )
+    return out

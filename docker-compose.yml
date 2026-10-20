@@ -2,13 +2,14 @@
 #
 #   docker compose up -d
 #
-# Two services, both entirely local -- no external cloud calls, matching the
+# Three services, all entirely local -- no external cloud calls, matching the
 # air-gapped deployment target in the Brief.
 #
 #   neo4j   : a LOCAL graph for practising Cypher and, later, for loading the
 #             CSV snapshot so the neo4j code path can be tested before we ever
 #             touch the real NIOUS graph. This is NOT the client graph.
-#   mlflow  : experiment tracking + model registry (needed from Week 2).
+#   mlflow  : experiment tracking + model registry UI.
+#   engine  : the pricing engine itself, run on demand (D7).
 #
 # Week 1 does not require either of these to be running -- the CSV backend works
 # standalone. They are here so the environment is complete and reproducible.
@@ -36,18 +37,36 @@ services:
       interval: 10s
       retries: 12
 
+  # The MLflow UI and registry, from the engine's own image so the server and
+  # the engine share one MLflow version -- a 2.x server cannot read the store a
+  # 3.x engine writes.
   mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.14.1
+    build: .
+    image: axiom-pricing
     container_name: axiom-mlflow
     ports:
       - "5000:5000"   # UI -> http://localhost:5000
+    entrypoint: ["mlflow"]
     command: >
-      mlflow server
+      server
       --host 0.0.0.0
       --port 5000
       --backend-store-uri sqlite:////mlflow/mlflow.db
       --default-artifact-root /mlflow/artifacts
     volumes:
+      - mlflow_data:/mlflow
+
+  # The pricing engine (D7). One-off runs, e.g.:
+  #   docker compose run --rm engine scripts/run_models.py --profile axiom_v2   #       --graph data/snapshot_axiom_v2 --out reports_axiom_v2
+  #   docker compose run --rm engine scripts/manage_models.py status --profile axiom_v2
+  #   docker compose run --rm engine scripts/run_monitoring.py --profile axiom_v2   #       --graph data/snapshot_axiom_v2 --out reports_axiom_v2
+  engine:
+    build: .
+    image: axiom-pricing
+    profiles: ["engine"]
+    volumes:
+      - ./data:/app/data:ro
+      - ./reports_axiom_v2:/app/reports_axiom_v2
       - mlflow_data:/mlflow
 
 volumes:

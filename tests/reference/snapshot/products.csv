@@ -1,0 +1,6 @@
+product_id,name,category,sub_category,list_price,unit_cost,product_family
+PRD-1,Widget One,Drives,AC Drives,100.00,60.00,FAM-X
+PRD-2,Widget Two,Drives,DC Drives,200.00,150.00,FAM-X
+PRD-3,Gadget Three,Motors,Servo Motors,50.00,20.00,FAM-Y
+PRD-4,Ghost Four,Motors,Servo Motors,,40.00,FAM-Y
+PRD-5,Phantom Five,Motors,Servo Motors,80.00,,FAM-Y

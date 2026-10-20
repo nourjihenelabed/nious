@@ -1,44 +1,5 @@
 #!/usr/bin/env python3
-"""
-Export the read-only AXIOM knowledge graph to the canonical CSV snapshot.
-
-WHY THIS EXISTS
----------------
-Week 1 runs against a synthetic CSV placeholder because we have no Neo4j
-credentials yet. This script is the bridge: once NIOUS hands over the URI, run
-it once and the *same* CSV filenames and column headers appear -- so every
-notebook, test and module written against the placeholder keeps working
-unchanged, now on real graph data.
-
-It is also useful after we have credentials, for two reasons the Brief cares
-about (section 7.4 / MLOps requirements):
-  1. Reproducibility -- a run must be regenerable from a *frozen* snapshot, not
-     from a live database that may have moved underneath us.
-  2. DVC -- `dvc add data/snapshot/` versions these CSVs, giving every model run
-     a hash-identified input.
-
-USAGE
------
-    # 1. put credentials in .env
-    #    NEO4J_URI=bolt://host:7687
-    #    NEO4J_USER=neo4j
-    #    NEO4J_PASSWORD=...
-    # 2. run
-    python scripts/export_neo4j_to_csv.py --out data/snapshot_2026-07-08
-
-    # optional: verify the export reconciles against the live graph
-    python scripts/export_neo4j_to_csv.py --out ../snapshot --verify
-
-GUARANTEES
-----------
-* Read-only. Uses Neo4j READ access mode and the queries in src/pricing/cypher.py;
-  no write clause exists anywhere in the path.
-* Lossless for our purposes. Node properties and the *edge* properties that carry
-  pricing meaning (CONTAINS.quantity/unit_price/line_total,
-  DISCOUNTED_BY.discount_amount_applied) are all preserved.
-* Missing values stay missing. Empty cells are written empty, never as 0 --
-  the waterfall must be able to tell "no freight allowance" from "unknown".
-"""
+"""Freeze the read-only AXIOM graph into the canonical CSV snapshot, for DVC."""
 
 from __future__ import annotations
 
@@ -48,7 +9,6 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# make `src` importable when running this file directly
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from pricing import config
@@ -57,6 +17,7 @@ from pricing.graph.source import Neo4jGraphSource  # noqa: E402
 
 
 def export(out_dir: Path, verify: bool = False) -> dict:
+    """Write every table to CSV plus a provenance manifest; nulls stay null."""
     out_dir.mkdir(parents=True, exist_ok=True)
     src = Neo4jGraphSource()
 
@@ -71,8 +32,6 @@ def export(out_dir: Path, verify: bool = False) -> dict:
         for table, filename in config.CSV_FILES.items():
             df = src.run(cypher.QUERIES[table])
             path = out_dir / filename
-            # index=False  -> no phantom column
-            # na_rep=""    -> NULL stays NULL; never coerced to 0
             df.to_csv(path, index=False, na_rep="")
             manifest["tables"][table] = {
                 "file": filename,
@@ -85,7 +44,6 @@ def export(out_dir: Path, verify: bool = False) -> dict:
         if verify:
             manifest["verification"] = _verify(src, manifest)
 
-        # A snapshot without provenance is not auditable. Always write this.
         (out_dir / "_manifest.json").write_text(
             json.dumps(manifest, indent=2), encoding="utf-8"
         )

@@ -1,0 +1,22 @@
+# Kept out of the image: data and run history are mounted, environments are
+# rebuilt, and nothing generated belongs in a build context.
+.git
+.dvc/cache
+.dvc/tmp
+axiompricingvenv
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.ipynb_checkpoints
+data
+reports
+reports_*
+mlflow.db
+mlartifacts
+mlruns
+notebooks
+docs/*.pdf
+.env

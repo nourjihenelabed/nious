@@ -1,0 +1,22 @@
+# Exact versions for the engine container (D7). Taken from the development
+# environment the engine was tested in, so the container computes what the
+# laptop computes. Update together, and rebuild.
+pandas==2.3.3
+numpy==2.2.6
+scipy==1.15.3
+scikit-learn==1.7.2
+skops==0.14.0
+mlflow==3.15.1
+pymc==5.25.1
+pytensor==2.31.7
+arviz==0.23.4
+neo4j==6.2.0
+python-dotenv==1.2.2
+tabulate==0.10.0
+openpyxl==3.1.5
+# The demo website (demo/server.py)
+fastapi==0.141.1
+starlette==1.4.1
+uvicorn==0.52.1
+pydantic==2.13.4
+PyYAML==6.0.3

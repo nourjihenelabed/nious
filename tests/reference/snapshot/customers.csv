@@ -1,0 +1,5 @@
+customer_id,name,segment,region_id,tier,credit_terms,tenure_years,industry,size
+CUS-A1,Alpha One,Enterprise,REG-A,Gold,NET60,5.0,Automotive,Large
+CUS-A2,Alpha Two,SMB,REG-A,Silver,NET30,2.0,Food & Beverage,Small
+CUS-A3,Alpha Three,SMB,REG-A,Bronze,NET30,1.0,Retail,Small
+CUS-B1,Beta One,Enterprise,REG-B,Gold,NET90,8.0,Automotive,Large
