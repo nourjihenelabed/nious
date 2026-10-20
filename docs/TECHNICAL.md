@@ -8,9 +8,6 @@ segmentation, elasticity with credible intervals, and constrained price
 recommendations — handed to Track B as one typed result object carrying its own
 evidence and confidence.
 
-**Full write-up: [`REPORT.md`](../REPORT.md)** — the architecture, what every module
-does, and how to run and test all of it.
-
 ## Progress against the plan
 
 | Week | Deliverable | Status |

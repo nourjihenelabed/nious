@@ -146,7 +146,6 @@ python scripts/check_data.py --describe
 - [`docs/CHAIN.md`](docs/CHAIN.md): how each step feeds the next, with the results on the sample data
 - [`docs/TECHNICAL.md`](docs/TECHNICAL.md): the technical guide (setup options, every command, data sources)
 - [`docs/CONSTANTS.md`](docs/CONSTANTS.md): every fixed number in the engine and where it comes from
-- [`REPORT.md`](REPORT.md): the full project report
 
 ---
 
