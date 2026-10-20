@@ -2,7 +2,7 @@
 ## Engineering report: what was built, why, and how to run it
 
 **Nourjihen Elabed** · Pricing Engine & MLOps · NIOUS GmbH internship
-Engine `v0.4.0` · contract `v0.2.0-draft` · 178 tests · Weeks 1–6 complete
+Engine `v0.4.0` · contract `v0.2.0-draft` · 178 tests · 
 
 ---
 
