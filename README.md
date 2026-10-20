@@ -79,16 +79,44 @@ pytest -q
 
 Docker packages the engine and everything it needs into one ready-to-run box (an "image"), so it works the same on any computer.
 
-**You do not need to build it yourself.** Every time code is pushed to GitHub, GitHub builds the image automatically and publishes it. You can see the result under the **Actions** tab of the repository (a green tick means it built), and the image under **Packages**.
+**You do not need to build it yourself.** Every time code is pushed to GitHub, GitHub builds the image on its own servers, checks that the engine and the demo start inside it, and publishes it. Next to each commit on GitHub you will see a green tick (it worked) or a red cross (something broke); the details are under the **Actions** tab, and the published image under **Packages**.
 
-To use it on a computer that has Docker:
+The image is **public**: anyone can download it, no GitHub account or login needed.
+
+**What you need:** Docker installed ([Docker Desktop](https://www.docker.com/products/docker-desktop/) on Windows or Mac), and the `data` folder from the project owner. The data is not on GitHub and not inside the image; you give it to the image when you start it.
+
+**1. Download the image** (once, and again whenever you want the latest version):
 
 ```bash
 docker pull ghcr.io/nourjihenelabed/nious:latest
+```
+
+**2. Start the demo website.** Run this in the folder that contains your `data` folder:
+
+```bash
 docker run --rm -p 8765:8765 -v "$PWD/data:/app/data" ghcr.io/nourjihenelabed/nious:latest demo/server.py --host 0.0.0.0
 ```
 
-Then open http://localhost:8765. The `-v` part gives the box access to your `data` folder.
+Then open **http://localhost:8765**. The first start takes about a minute.
+
+What the parts of that command mean:
+
+| Part | Meaning |
+|---|---|
+| `--rm` | Clean up the box when you stop it |
+| `-p 8765:8765` | Make the website reachable on your computer at port 8765 |
+| `-v "$PWD/data:/app/data"` | Give the box access to your `data` folder |
+| `demo/server.py --host 0.0.0.0` | What to run inside the box: the demo website |
+
+On Windows, run these commands in PowerShell, where they work as written. In the older Command Prompt, replace `$PWD` with `%cd%`.
+
+**3. Or run the calculations instead of the website,** and save the results in a `reports_axiom_v2` folder next to your data:
+
+```bash
+docker run --rm -v "$PWD/data:/app/data" -v "$PWD/reports_axiom_v2:/app/reports_axiom_v2" ghcr.io/nourjihenelabed/nious:latest scripts/run_models.py --profile axiom_v2 --graph data/snapshot_axiom_v2 --out reports_axiom_v2
+```
+
+To stop the website, press `Ctrl + C` in the terminal.
 
 ---
 
